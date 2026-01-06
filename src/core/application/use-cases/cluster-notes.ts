@@ -146,16 +146,7 @@ export class ClusterNotesUseCase {
       .filter(note => !this.isExcludedPath(note.notePath))
       .slice(0, maxSize - 1);
 
-    // 노트 내용 조회
-    const notes: NoteContent[] = [seedNote];
-    for (const result of similarNotes) {
-      const note = await this.noteRepository.getNoteByPath(result.notePath);
-      if (note) {
-        notes.push(note);
-      }
-    }
-
-    // 클러스터 멤버 생성 (유사도 포함)
+    // 노트 내용 조회하고 ClusterMember 생성 (유사도 포함)
     const members: ClusterMember[] = [
       {
         noteId: seedNote.noteId,
@@ -163,13 +154,19 @@ export class ClusterNotesUseCase {
         title: seedNote.title,
         similarity: 1.0, // 시드 노트는 유사도 1.0
       },
-      ...similarNotes.map((r) => ({
-        noteId: r.noteId,
-        notePath: r.notePath,
-        title: r.noteId, // TODO: 실제 제목으로 대체
-        similarity: r.similarity,
-      })),
     ];
+
+    for (const result of similarNotes) {
+      const note = await this.noteRepository.getNoteByPath(result.notePath);
+      if (note) {
+        members.push({
+          noteId: note.noteId,
+          notePath: note.notePath,
+          title: note.title,
+          similarity: result.similarity,
+        });
+      }
+    }
 
     // 평균 유사도를 응집도로 사용
     const coherenceScore =
