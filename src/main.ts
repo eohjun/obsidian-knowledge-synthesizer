@@ -10,6 +10,7 @@ import type { IEmbeddingProvider } from './core/domain/interfaces/embedding-prov
 import type { IVectorStore } from './core/domain/interfaces/vector-store.interface';
 import type { ISynthesisGenerator } from './core/domain/interfaces/synthesis-generator.interface';
 import type { INoteRepository } from './core/domain/interfaces/note-repository.interface';
+import { AIProviderType, AI_PROVIDERS } from './core/domain/constants';
 
 // Application
 import { EmbeddingService } from './core/application/services/embedding-service';
@@ -36,7 +37,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   // Services
   private embeddingProvider: IEmbeddingProvider | null = null;
   private vectorStore: IVectorStore | null = null;
-  private synthesisGenerator: ISynthesisGenerator | null = null;
+  private synthesisGenerator: LLMSynthesisGenerator | null = null;
   private noteRepository: INoteRepository | null = null;
   private embeddingService: EmbeddingService | null = null;
 
@@ -85,6 +86,8 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    // 이전 설정과의 호환성 처리
+    this.migrateSettings();
   }
 
   async saveSettings(): Promise<void> {
@@ -94,19 +97,74 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   }
 
   /**
+   * 이전 설정에서 새 설정으로 마이그레이션
+   */
+  private migrateSettings(): void {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const oldSettings = this.settings as any;
+
+    // openaiApiKey → ai.apiKeys.openai
+    if (oldSettings.openaiApiKey && !this.settings.ai.apiKeys.openai) {
+      this.settings.ai.apiKeys.openai = oldSettings.openaiApiKey;
+      delete oldSettings.openaiApiKey;
+    }
+
+    // anthropicApiKey → ai.apiKeys.claude
+    if (oldSettings.anthropicApiKey && !this.settings.ai.apiKeys.claude) {
+      this.settings.ai.apiKeys.claude = oldSettings.anthropicApiKey;
+      delete oldSettings.anthropicApiKey;
+    }
+
+    // llmProvider → ai.provider (openai/anthropic → openai/claude)
+    if (oldSettings.llmProvider) {
+      if (oldSettings.llmProvider === 'anthropic') {
+        this.settings.ai.provider = 'claude';
+      } else if (oldSettings.llmProvider === 'openai') {
+        this.settings.ai.provider = 'openai';
+      }
+      delete oldSettings.llmProvider;
+    }
+
+    // model → ai.models[provider]
+    if (oldSettings.model) {
+      const provider = this.settings.ai.provider;
+      this.settings.ai.models[provider] = oldSettings.model;
+      delete oldSettings.model;
+    }
+  }
+
+  /**
    * 플러그인이 올바르게 설정되었는지 확인
    */
   isConfigured(): boolean {
-    return !!this.settings.openaiApiKey;
+    const currentProvider = this.settings.ai.provider;
+    const apiKey = this.settings.ai.apiKeys[currentProvider];
+    return !!apiKey;
+  }
+
+  /**
+   * API 키 테스트
+   */
+  async testApiKey(provider: AIProviderType, apiKey: string): Promise<boolean> {
+    const model = this.settings.ai.models[provider] ?? AI_PROVIDERS[provider].defaultModel;
+    const testGenerator = new LLMSynthesisGenerator({
+      provider,
+      apiKey,
+      model,
+    });
+    return testGenerator.testApiKey(apiKey);
   }
 
   /**
    * 서비스 초기화
    */
   private initializeServices(): void {
-    // API 키가 없으면 서비스 초기화하지 않음
-    if (!this.settings.openaiApiKey) {
-      console.log('Knowledge Synthesizer: OpenAI API key not configured');
+    const currentProvider = this.settings.ai.provider;
+    const llmApiKey = this.settings.ai.apiKeys[currentProvider];
+
+    // LLM API 키가 없으면 합성 서비스 초기화하지 않음
+    if (!llmApiKey) {
+      console.log('Knowledge Synthesizer: LLM API key not configured');
       return;
     }
 
@@ -114,41 +172,46 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
       // Note Repository (항상 필요)
       this.noteRepository = new ObsidianNoteRepository(this.app);
 
-      // Embedding Provider & Vector Store
-      this.embeddingProvider = new OpenAIEmbeddingProvider(this.settings.openaiApiKey);
-      this.vectorStore = new InMemoryVectorStore();
-
-      // Embedding Service
-      this.embeddingService = new EmbeddingService(this.embeddingProvider, this.vectorStore);
+      // Embedding Provider & Vector Store (OpenAI API 키 필요)
+      const openaiApiKey = this.settings.ai.apiKeys.openai;
+      if (openaiApiKey) {
+        this.embeddingProvider = new OpenAIEmbeddingProvider(openaiApiKey);
+        this.vectorStore = new InMemoryVectorStore();
+        this.embeddingService = new EmbeddingService(this.embeddingProvider, this.vectorStore);
+      } else {
+        console.log('Knowledge Synthesizer: OpenAI API key not configured for embeddings');
+        this.embeddingProvider = null;
+        this.vectorStore = null;
+        this.embeddingService = null;
+      }
 
       // Synthesis Generator
-      const llmApiKey =
-        this.settings.llmProvider === 'anthropic'
-          ? this.settings.anthropicApiKey
-          : this.settings.openaiApiKey;
-
       const llmConfig: LLMConfig = {
-        provider: this.settings.llmProvider,
+        provider: currentProvider,
         apiKey: llmApiKey,
-        model: this.settings.model,
+        model: this.settings.ai.models[currentProvider],
       };
       this.synthesisGenerator = new LLMSynthesisGenerator(llmConfig);
 
-      // Use Cases
-      this.clusterNotesUseCase = new ClusterNotesUseCase(
-        this.embeddingService,
-        this.noteRepository
-      );
+      // Use Cases (embeddingService가 있을 때만 ClusterNotesUseCase 생성)
+      if (this.embeddingService) {
+        this.clusterNotesUseCase = new ClusterNotesUseCase(
+          this.embeddingService,
+          this.noteRepository
+        );
+      }
 
       this.synthesizeNotesUseCase = new SynthesizeNotesUseCase(
         this.synthesisGenerator,
         this.noteRepository
       );
 
-      this.suggestSynthesisUseCase = new SuggestSynthesisUseCase(
-        this.clusterNotesUseCase,
-        this.noteRepository
-      );
+      if (this.clusterNotesUseCase) {
+        this.suggestSynthesisUseCase = new SuggestSynthesisUseCase(
+          this.clusterNotesUseCase,
+          this.noteRepository
+        );
+      }
 
       console.log('Knowledge Synthesizer: Services initialized');
     } catch (error) {

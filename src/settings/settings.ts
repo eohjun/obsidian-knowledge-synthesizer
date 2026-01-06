@@ -3,17 +3,20 @@
  * 플러그인 설정 인터페이스
  */
 
-import type { LLMProvider } from '../adapters/llm/llm-synthesis-generator';
+import { AIProviderType, AI_PROVIDERS } from '../core/domain/constants';
+
+export interface AISettings {
+  /** 현재 선택된 프로바이더 */
+  provider: AIProviderType;
+  /** 프로바이더별 API 키 */
+  apiKeys: Partial<Record<AIProviderType, string>>;
+  /** 프로바이더별 선택된 모델 */
+  models: Record<AIProviderType, string>;
+}
 
 export interface KnowledgeSynthesizerSettings {
-  /** OpenAI API 키 */
-  openaiApiKey: string;
-  /** Anthropic API 키 */
-  anthropicApiKey: string;
-  /** 사용할 LLM 프로바이더 */
-  llmProvider: LLMProvider;
-  /** 사용할 모델 (선택) */
-  model?: string;
+  /** AI 설정 */
+  ai: AISettings;
   /** 합성 결과 저장 폴더 */
   outputFolder: string;
   /** 기본 합성 옵션 */
@@ -37,10 +40,16 @@ export interface KnowledgeSynthesizerSettings {
 }
 
 export const DEFAULT_SETTINGS: KnowledgeSynthesizerSettings = {
-  openaiApiKey: '',
-  anthropicApiKey: '',
-  llmProvider: 'openai',
-  model: undefined,
+  ai: {
+    provider: 'openai',
+    apiKeys: {},
+    models: {
+      claude: AI_PROVIDERS.claude.defaultModel,
+      openai: AI_PROVIDERS.openai.defaultModel,
+      gemini: AI_PROVIDERS.gemini.defaultModel,
+      grok: AI_PROVIDERS.grok.defaultModel,
+    },
+  },
   outputFolder: 'Synthesized',
   defaultSynthesisOptions: {
     includeBacklinks: true,

@@ -1,6 +1,6 @@
 /**
  * LLM Synthesis Generator
- * LLM을 사용한 노트 합성 생성기
+ * LLM을 사용한 노트 합성 생성기 (4개 프로바이더 지원)
  */
 
 import { requestUrl } from 'obsidian';
@@ -10,25 +10,19 @@ import type {
 } from '../../core/domain/interfaces/synthesis-generator.interface';
 import type { SynthesisRequest, SynthesisType } from '../../core/domain/entities/synthesis-request';
 import { createSynthesisResult, SynthesisResult } from '../../core/domain/entities/synthesis-result';
-
-export type LLMProvider = 'openai' | 'anthropic';
+import { AIProviderType, AI_PROVIDERS } from '../../core/domain/constants';
 
 export interface LLMConfig {
-  provider: LLMProvider;
+  provider: AIProviderType;
   apiKey: string;
   model?: string;
 }
-
-const DEFAULT_MODELS: Record<LLMProvider, string> = {
-  openai: 'gpt-4o-mini',
-  anthropic: 'claude-3-5-haiku-latest',
-};
 
 export class LLMSynthesisGenerator implements ISynthesisGenerator {
   private readonly model: string;
 
   constructor(private readonly config: LLMConfig) {
-    this.model = config.model || DEFAULT_MODELS[config.provider];
+    this.model = config.model || AI_PROVIDERS[config.provider].defaultModel;
   }
 
   /**
@@ -97,6 +91,116 @@ export class LLMSynthesisGenerator implements ISynthesisGenerator {
    */
   isAvailable(): boolean {
     return !!this.config.apiKey && this.config.apiKey.length > 0;
+  }
+
+  /**
+   * API 키 테스트
+   */
+  async testApiKey(apiKey: string): Promise<boolean> {
+    try {
+      switch (this.config.provider) {
+        case 'claude':
+          return await this.testClaudeApiKey(apiKey);
+        case 'openai':
+          return await this.testOpenAIApiKey(apiKey);
+        case 'gemini':
+          return await this.testGeminiApiKey(apiKey);
+        case 'grok':
+          return await this.testGrokApiKey(apiKey);
+        default:
+          return false;
+      }
+    } catch {
+      return false;
+    }
+  }
+
+  private async testClaudeApiKey(apiKey: string): Promise<boolean> {
+    const response = await requestUrl({
+      url: 'https://api.anthropic.com/v1/messages',
+      method: 'POST',
+      headers: {
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'user', content: 'Hello' }],
+        max_tokens: 10,
+      }),
+    });
+    return response.status === 200 && response.json.content;
+  }
+
+  private async testOpenAIApiKey(apiKey: string): Promise<boolean> {
+    // GPT-5.x, o1, o3 모델은 max_completion_tokens 사용
+    const isReasoningModel =
+      this.model.startsWith('gpt-5') ||
+      this.model.startsWith('o1') ||
+      this.model.startsWith('o3');
+
+    const requestBody: Record<string, unknown> = {
+      model: this.model,
+      messages: [{ role: 'user', content: 'Hello' }],
+    };
+
+    if (isReasoningModel) {
+      requestBody.max_completion_tokens = 10;
+    } else {
+      requestBody.max_tokens = 10;
+    }
+
+    const response = await requestUrl({
+      url: 'https://api.openai.com/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+    return response.status === 200 && response.json.choices?.length > 0;
+  }
+
+  private async testGeminiApiKey(apiKey: string): Promise<boolean> {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${apiKey}`;
+    const response = await requestUrl({
+      url,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: 'Hello' }],
+          },
+        ],
+        generationConfig: {
+          maxOutputTokens: 10,
+        },
+      }),
+    });
+    return response.status === 200 && response.json.candidates?.length > 0;
+  }
+
+  private async testGrokApiKey(apiKey: string): Promise<boolean> {
+    const response = await requestUrl({
+      url: 'https://api.x.ai/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'user', content: 'Hello' }],
+        max_tokens: 10,
+      }),
+    });
+    return response.status === 200 && response.json.choices?.length > 0;
   }
 
   /**
@@ -186,43 +290,24 @@ ${notesText}
    * LLM API 호출
    */
   private async callLLM(prompt: string): Promise<string> {
-    if (this.config.provider === 'openai') {
-      return this.callOpenAI(prompt);
-    } else {
-      return this.callAnthropic(prompt);
+    switch (this.config.provider) {
+      case 'claude':
+        return this.callClaude(prompt);
+      case 'openai':
+        return this.callOpenAI(prompt);
+      case 'gemini':
+        return this.callGemini(prompt);
+      case 'grok':
+        return this.callGrok(prompt);
+      default:
+        throw new Error(`Unsupported provider: ${this.config.provider}`);
     }
   }
 
   /**
-   * OpenAI API 호출
+   * Claude API 호출
    */
-  private async callOpenAI(prompt: string): Promise<string> {
-    const response = await requestUrl({
-      url: 'https://api.openai.com/v1/chat/completions',
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 4000,
-      }),
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    return response.json.choices[0].message.content;
-  }
-
-  /**
-   * Anthropic API 호출
-   */
-  private async callAnthropic(prompt: string): Promise<string> {
+  private async callClaude(prompt: string): Promise<string> {
     const response = await requestUrl({
       url: 'https://api.anthropic.com/v1/messages',
       method: 'POST',
@@ -239,9 +324,106 @@ ${notesText}
     });
 
     if (response.status !== 200) {
-      throw new Error(`Anthropic API error: ${response.status}`);
+      throw new Error(`Claude API error: ${response.status}`);
     }
 
     return response.json.content[0].text;
+  }
+
+  /**
+   * OpenAI API 호출
+   */
+  private async callOpenAI(prompt: string): Promise<string> {
+    // GPT-5.x, o1, o3 모델은 max_completion_tokens 사용
+    const isReasoningModel =
+      this.model.startsWith('gpt-5') ||
+      this.model.startsWith('o1') ||
+      this.model.startsWith('o3');
+
+    const requestBody: Record<string, unknown> = {
+      model: this.model,
+      messages: [{ role: 'user', content: prompt }],
+      temperature: 0.7,
+    };
+
+    if (isReasoningModel) {
+      requestBody.max_completion_tokens = 4000;
+    } else {
+      requestBody.max_tokens = 4000;
+    }
+
+    const response = await requestUrl({
+      url: 'https://api.openai.com/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    if (response.status !== 200) {
+      throw new Error(`OpenAI API error: ${response.status}`);
+    }
+
+    return response.json.choices[0].message.content;
+  }
+
+  /**
+   * Gemini API 호출
+   */
+  private async callGemini(prompt: string): Promise<string> {
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.config.apiKey}`;
+    const response = await requestUrl({
+      url,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        contents: [
+          {
+            role: 'user',
+            parts: [{ text: prompt }],
+          },
+        ],
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 4000,
+        },
+      }),
+    });
+
+    if (response.status !== 200) {
+      throw new Error(`Gemini API error: ${response.status}`);
+    }
+
+    return response.json.candidates[0].content.parts[0].text;
+  }
+
+  /**
+   * Grok API 호출 (OpenAI-compatible)
+   */
+  private async callGrok(prompt: string): Promise<string> {
+    const response = await requestUrl({
+      url: 'https://api.x.ai/v1/chat/completions',
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${this.config.apiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: this.model,
+        messages: [{ role: 'user', content: prompt }],
+        temperature: 0.7,
+        max_tokens: 4000,
+      }),
+    });
+
+    if (response.status !== 200) {
+      throw new Error(`Grok API error: ${response.status}`);
+    }
+
+    return response.json.choices[0].message.content;
   }
 }
