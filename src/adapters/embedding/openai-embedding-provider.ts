@@ -20,25 +20,43 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
       throw new Error('OpenAI API key is not configured');
     }
 
-    const response = await requestUrl({
-      url: 'https://api.openai.com/v1/embeddings',
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        input: this.truncateText(text),
-      }),
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+    const cleanedText = this.cleanText(text);
+    if (!cleanedText) {
+      throw new Error('Empty text cannot be embedded');
     }
 
-    const data = response.json;
-    return data.data[0].embedding;
+    console.log('[Knowledge Synthesizer] Embedding request:', {
+      model: this.model,
+      inputLength: cleanedText.length,
+      inputPreview: cleanedText.substring(0, 100),
+    });
+
+    try {
+      const response = await requestUrl({
+        url: 'https://api.openai.com/v1/embeddings',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          input: this.truncateText(cleanedText),
+        }),
+      });
+
+      console.log('[Knowledge Synthesizer] Embedding response status:', response.status);
+      return response.json.data[0].embedding;
+    } catch (error: unknown) {
+      console.error('[Knowledge Synthesizer] Embedding error:', error);
+
+      // Obsidian requestUrl 에러에서 상세 정보 추출
+      const err = error as { status?: number; message?: string };
+      if (err.status === 400) {
+        throw new Error(`OpenAI Embedding API 요청 실패 (400): API 키 또는 모델을 확인하세요`);
+      }
+      throw new Error(`Embedding 요청 실패: ${err.message || String(error)}`);
+    }
   }
 
   /**
@@ -53,31 +71,67 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
       return [];
     }
 
-    const truncatedTexts = texts.map((t) => this.truncateText(t));
+    // 빈 텍스트 필터링 및 정리
+    const cleanedTexts = texts.map((t) => this.cleanText(t));
+    const validTexts = cleanedTexts.filter((t) => t.length > 0);
 
-    const response = await requestUrl({
-      url: 'https://api.openai.com/v1/embeddings',
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${this.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: this.model,
-        input: truncatedTexts,
-      }),
-    });
-
-    if (response.status !== 200) {
-      throw new Error(`OpenAI API error: ${response.status}`);
+    if (validTexts.length === 0) {
+      throw new Error('All texts are empty or whitespace-only');
     }
 
-    const data = response.json;
-    // OpenAI는 결과를 index 순서대로 반환하지 않을 수 있으므로 정렬
-    const sortedData = [...data.data].sort(
-      (a: { index: number }, b: { index: number }) => a.index - b.index
-    );
-    return sortedData.map((d: { embedding: number[] }) => d.embedding);
+    const truncatedTexts = validTexts.map((t) => this.truncateText(t));
+
+    console.log('[Knowledge Synthesizer] Batch embedding request:', {
+      model: this.model,
+      count: truncatedTexts.length,
+      lengths: truncatedTexts.map(t => t.length),
+    });
+
+    try {
+      const response = await requestUrl({
+        url: 'https://api.openai.com/v1/embeddings',
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: this.model,
+          input: truncatedTexts,
+        }),
+      });
+
+      console.log('[Knowledge Synthesizer] Batch embedding response status:', response.status);
+
+      const data = response.json;
+      // OpenAI는 결과를 index 순서대로 반환하지 않을 수 있으므로 정렬
+      const sortedData = [...data.data].sort(
+        (a: { index: number }, b: { index: number }) => a.index - b.index
+      );
+
+      // 원본 인덱스에 맞게 결과 매핑 (빈 텍스트는 빈 배열)
+      const embeddings = sortedData.map((d: { embedding: number[] }) => d.embedding);
+      const result: number[][] = [];
+      let embeddingIdx = 0;
+
+      for (const cleaned of cleanedTexts) {
+        if (cleaned.length > 0) {
+          result.push(embeddings[embeddingIdx++]);
+        } else {
+          result.push([]); // 빈 텍스트는 빈 벡터
+        }
+      }
+
+      return result;
+    } catch (error: unknown) {
+      console.error('[Knowledge Synthesizer] Batch embedding error:', error);
+
+      const err = error as { status?: number; message?: string };
+      if (err.status === 400) {
+        throw new Error(`OpenAI Embedding API 요청 실패 (400): API 키 또는 모델을 확인하세요`);
+      }
+      throw new Error(`Batch embedding 요청 실패: ${err.message || String(error)}`);
+    }
   }
 
   /**
@@ -92,6 +146,15 @@ export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
    */
   getDimensions(): number {
     return this.dimensions;
+  }
+
+  /**
+   * 텍스트 정리 (공백 제거 및 정리)
+   */
+  private cleanText(text: string): string {
+    if (!text) return '';
+    // 앞뒤 공백 제거 및 연속 공백 정리
+    return text.trim().replace(/\s+/g, ' ');
   }
 
   /**
