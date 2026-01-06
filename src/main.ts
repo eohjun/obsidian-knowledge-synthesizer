@@ -199,6 +199,8 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
           this.embeddingService,
           this.noteRepository
         );
+        // 제외 폴더 설정
+        this.clusterNotesUseCase.setExcludedFolders(this.settings.excludedFolders);
       }
 
       this.synthesizeNotesUseCase = new SynthesizeNotesUseCase(

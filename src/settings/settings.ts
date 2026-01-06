@@ -19,6 +19,8 @@ export interface KnowledgeSynthesizerSettings {
   ai: AISettings;
   /** 합성 결과 저장 폴더 */
   outputFolder: string;
+  /** 제외할 폴더 목록 (Daily notes, Templates 등) */
+  excludedFolders: string[];
   /** 기본 합성 옵션 */
   defaultSynthesisOptions: {
     /** 역링크 포함 여부 */
@@ -51,6 +53,7 @@ export const DEFAULT_SETTINGS: KnowledgeSynthesizerSettings = {
     },
   },
   outputFolder: 'Synthesized',
+  excludedFolders: ['06_Meta'],
   defaultSynthesisOptions: {
     includeBacklinks: true,
     autoSuggestTags: true,

@@ -18,6 +18,7 @@ export interface SuggestSynthesisOptions {
   minClusterSize?: number;
   maxSuggestions?: number;
   minCoherence?: number;
+  excludedFolders?: string[];
 }
 
 export class SuggestSynthesisUseCase {
@@ -66,10 +67,19 @@ export class SuggestSynthesisUseCase {
       minClusterSize = 3,
       maxSuggestions = 5,
       minCoherence = 0.3,
+      excludedFolders = [],
     } = options || {};
 
     // 모든 폴더 조회
-    const folders = await this.noteRepository.getAllFolders();
+    const allFolders = await this.noteRepository.getAllFolders();
+
+    // 제외 폴더 필터링 (폴더 경로가 excludedFolders로 시작하면 제외)
+    const folders = allFolders.filter(folder =>
+      !excludedFolders.some(excluded =>
+        folder === excluded || folder.startsWith(excluded + '/')
+      )
+    );
+
     const suggestions: SynthesisSuggestion[] = [];
 
     for (const folder of folders) {

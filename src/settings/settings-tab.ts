@@ -41,6 +41,22 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
           })
       );
 
+    new Setting(containerEl)
+      .setName('제외 폴더')
+      .setDesc('합성 추천에서 제외할 폴더 (쉼표로 구분, 예: 06_Meta, Templates)')
+      .addText((text) =>
+        text
+          .setPlaceholder('06_Meta, Templates')
+          .setValue(this.plugin.settings.excludedFolders.join(', '))
+          .onChange(async (value) => {
+            this.plugin.settings.excludedFolders = value
+              .split(',')
+              .map(f => f.trim())
+              .filter(f => f.length > 0);
+            await this.plugin.saveSettings();
+          })
+      );
+
     // Synthesis Options
     containerEl.createEl('h3', { text: '합성 옵션' });
 

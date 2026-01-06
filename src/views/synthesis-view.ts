@@ -14,6 +14,8 @@ export class SynthesisView extends ItemView {
   private plugin: KnowledgeSynthesizerPlugin;
   private suggestions: SynthesisSuggestion[] = [];
   private isLoading = false;
+  private loadingMessage = '';
+  private loadingStage = '';
 
   constructor(leaf: WorkspaceLeaf, plugin: KnowledgeSynthesizerPlugin) {
     super(leaf);
@@ -65,7 +67,11 @@ export class SynthesisView extends ItemView {
     // 로딩 상태
     if (this.isLoading) {
       const loading = container.createDiv({ cls: 'synthesis-loading' });
-      loading.createEl('p', { text: '분석 중...' });
+      loading.createDiv({ cls: 'synthesis-loading-spinner' });
+      loading.createEl('p', { text: this.loadingMessage || '분석 중...', cls: 'synthesis-loading-text' });
+      if (this.loadingStage) {
+        loading.createEl('p', { text: this.loadingStage, cls: 'synthesis-loading-stage' });
+      }
       return;
     }
 
@@ -167,6 +173,8 @@ export class SynthesisView extends ItemView {
     }
 
     this.isLoading = true;
+    this.loadingMessage = '노트를 분석하고 있습니다...';
+    this.loadingStage = '관련 노트 수집 중';
     await this.render();
 
     try {
@@ -186,16 +194,24 @@ export class SynthesisView extends ItemView {
         }
       }
 
+      // 로딩 메시지 업데이트
+      this.loadingMessage = '클러스터를 분석하고 있습니다...';
+      this.loadingStage = '태그 및 폴더 기반 그룹화';
+      await this.render();
+
       this.suggestions = await this.plugin.suggestSynthesisUseCase.suggestAll(recentNoteIds, {
         minClusterSize: this.plugin.settings.clusterOptions.minClusterSize,
         minCoherence: this.plugin.settings.clusterOptions.minCoherence,
         maxSuggestions: this.plugin.settings.clusterOptions.maxSuggestions,
+        excludedFolders: this.plugin.settings.excludedFolders,
       });
     } catch (error) {
       console.error('Failed to load suggestions:', error);
       new Notice('추천 로드 실패: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       this.isLoading = false;
+      this.loadingMessage = '';
+      this.loadingStage = '';
       await this.render();
     }
   }

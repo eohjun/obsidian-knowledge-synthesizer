@@ -12,17 +12,50 @@ import {
 } from '../../domain/entities/note-cluster';
 import type { EmbeddingService, EmbedNoteInput } from '../services/embedding-service';
 
+export interface ClusterOptions {
+  excludedFolders?: string[];
+}
+
 export class ClusterNotesUseCase {
+  private excludedFolders: string[] = [];
+
   constructor(
     private readonly embeddingService: EmbeddingService,
     private readonly noteRepository: INoteRepository
   ) {}
 
   /**
+   * 제외 폴더 설정
+   */
+  setExcludedFolders(folders: string[]): void {
+    this.excludedFolders = folders;
+  }
+
+  /**
+   * 노트가 제외 폴더에 있는지 확인
+   */
+  private isExcludedPath(notePath: string): boolean {
+    return this.excludedFolders.some(excluded =>
+      notePath.startsWith(excluded + '/')
+    );
+  }
+
+  /**
+   * 제외 폴더의 노트 필터링
+   */
+  private filterExcludedNotes<T extends { notePath: string }>(notes: T[]): T[] {
+    if (this.excludedFolders.length === 0) {
+      return notes;
+    }
+    return notes.filter(note => !this.isExcludedPath(note.notePath));
+  }
+
+  /**
    * 태그 기반 클러스터링
    */
   async clusterByTag(tag: string): Promise<NoteCluster> {
-    const notes = await this.noteRepository.getNotesByTag(tag);
+    const allNotes = await this.noteRepository.getNotesByTag(tag);
+    const notes = this.filterExcludedNotes(allNotes);
 
     if (notes.length === 0) {
       return createNoteCluster(`#${tag}`, [], 'tag', 0);
@@ -72,6 +105,11 @@ export class ClusterNotesUseCase {
       return createNoteCluster('Unknown', [], 'similarity', 0);
     }
 
+    // 시드 노트가 제외 폴더에 있으면 빈 클러스터 반환
+    if (this.isExcludedPath(seedNote.notePath)) {
+      return createNoteCluster('Unknown', [], 'similarity', 0);
+    }
+
     // 시드 노트 임베딩
     await this.embeddingService.embedNote({
       noteId: seedNote.noteId,
@@ -79,11 +117,14 @@ export class ClusterNotesUseCase {
       content: `${seedNote.title}\n\n${seedNote.content}`,
     });
 
-    // 유사 노트 검색
-    const similarNotes = this.embeddingService.findSimilarByNoteId(seedNoteId, {
+    // 유사 노트 검색 (제외 폴더 필터링)
+    const allSimilarNotes = this.embeddingService.findSimilarByNoteId(seedNoteId, {
       threshold,
-      limit: maxSize - 1,
+      limit: maxSize * 2, // 필터링을 위해 더 많이 조회
     });
+    const similarNotes = allSimilarNotes
+      .filter(note => !this.isExcludedPath(note.notePath))
+      .slice(0, maxSize - 1);
 
     // 노트 내용 조회
     const notes: NoteContent[] = [seedNote];
