@@ -1,0 +1,134 @@
+/* Knowledge Synthesizer Plugin Styles */
+
+.synthesis-view-container {
+  padding: 10px;
+}
+
+.synthesis-view-header {
+  margin-bottom: 15px;
+}
+
+.synthesis-view-header h4 {
+  margin: 0;
+}
+
+.synthesis-actions {
+  margin-bottom: 15px;
+}
+
+.synthesis-warning {
+  background-color: var(--background-modifier-error);
+  padding: 10px;
+  border-radius: 5px;
+  margin-bottom: 15px;
+}
+
+.synthesis-warning p {
+  margin: 5px 0;
+}
+
+.synthesis-loading {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+}
+
+.synthesis-empty {
+  text-align: center;
+  padding: 20px;
+  color: var(--text-muted);
+}
+
+.synthesis-suggestions {
+  display: flex;
+  flex-direction: column;
+  gap: 15px;
+}
+
+.synthesis-suggestion-card {
+  background-color: var(--background-secondary);
+  border-radius: 8px;
+  padding: 15px;
+  border: 1px solid var(--background-modifier-border);
+}
+
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.priority-icon {
+  display: flex;
+  align-items: center;
+}
+
+.priority-icon.priority-high {
+  color: var(--text-accent);
+}
+
+.priority-icon.priority-medium {
+  color: var(--text-warning);
+}
+
+.priority-icon.priority-low {
+  color: var(--text-muted);
+}
+
+.suggestion-title {
+  font-weight: 600;
+  flex: 1;
+}
+
+.suggestion-info {
+  display: flex;
+  gap: 15px;
+  color: var(--text-muted);
+  font-size: 0.9em;
+  margin-bottom: 8px;
+}
+
+.suggestion-reason {
+  font-size: 0.9em;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+}
+
+.suggestion-notes {
+  margin-bottom: 10px;
+}
+
+.toggle-notes {
+  font-size: 0.85em;
+  padding: 3px 8px;
+}
+
+.note-list-content {
+  margin-top: 8px;
+  padding-left: 10px;
+  font-size: 0.85em;
+}
+
+.note-list-content.hidden {
+  display: none;
+}
+
+.note-item {
+  padding: 2px 0;
+  color: var(--text-muted);
+}
+
+.note-item.more {
+  font-style: italic;
+}
+
+.suggestion-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+}
+
+.synthesis-type-select {
+  flex: 1;
+}
