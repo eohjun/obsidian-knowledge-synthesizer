@@ -7,6 +7,7 @@ import { ItemView, WorkspaceLeaf, Notice, setIcon } from 'obsidian';
 import type KnowledgeSynthesizerPlugin from '../main';
 import type { SynthesisSuggestion } from '../core/application/use-cases/suggest-synthesis';
 import type { SynthesisType } from '../core/domain/entities/synthesis-request';
+import { generateNoteId } from '../core/domain/utils/note-id';
 
 export const SYNTHESIS_VIEW_TYPE = 'knowledge-synthesizer-view';
 
@@ -178,19 +179,20 @@ export class SynthesisView extends ItemView {
     await this.render();
 
     try {
-      // 현재 열린 파일 및 몇 가지 파일 ID 가져오기
+      // 현재 열린 파일 및 몇 가지 파일 ID 가져오기 (hash 기반 - Vault Embeddings 호환)
       const activeFile = this.app.workspace.getActiveFile();
       const recentNoteIds: string[] = [];
 
       if (activeFile) {
-        recentNoteIds.push(activeFile.basename);
+        recentNoteIds.push(generateNoteId(activeFile.path));
       }
 
       // 추가로 몇 개의 마크다운 파일을 가져옴
       const mdFiles = this.app.vault.getMarkdownFiles().slice(0, 5);
       for (const file of mdFiles) {
-        if (!recentNoteIds.includes(file.basename)) {
-          recentNoteIds.push(file.basename);
+        const noteId = generateNoteId(file.path);
+        if (!recentNoteIds.includes(noteId)) {
+          recentNoteIds.push(noteId);
         }
       }
 

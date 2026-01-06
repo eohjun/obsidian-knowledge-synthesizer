@@ -1,6 +1,6 @@
 {
   "name": "obsidian-knowledge-synthesizer",
-  "version": "0.3.2",
+  "version": "0.3.3",
   "description": "Synthesize multiple related notes into higher-level framework insights with AI",
   "main": "main.js",
   "scripts": {
