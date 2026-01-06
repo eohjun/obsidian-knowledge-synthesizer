@@ -7,7 +7,7 @@ import { requestUrl } from 'obsidian';
 import type { IEmbeddingProvider, EmbeddingVector } from '../../core/domain/interfaces/embedding-provider.interface';
 
 export class OpenAIEmbeddingProvider implements IEmbeddingProvider {
-  private readonly model = 'text-embedding-3-small';
+  private readonly model = 'text-embedding-ada-002';
   private readonly dimensions = 1536;
 
   constructor(private readonly apiKey: string) {}
