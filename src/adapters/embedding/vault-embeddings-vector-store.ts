@@ -15,25 +15,21 @@ import type {
 import type { EmbeddingVector } from '../../core/domain/interfaces/embedding-provider.interface';
 
 /**
- * Vault Embeddings 인덱스 파일 구조
+ * Vault Embeddings 인덱스 파일 구조 (실제 vault-embeddings 플러그인 구조)
  */
-interface VaultEmbeddingEntry {
-  noteId: string;
-  notePath: string;
-  embeddingFile: string;
-  model: string;
-  provider: string;
+interface VaultEmbeddingNoteInfo {
+  path: string;
   contentHash: string;
-  createdAt: string;
   updatedAt: string;
 }
 
 interface VaultEmbeddingIndex {
   version: string;
+  totalNotes: number;
+  lastUpdated: string;
   model: string;
-  provider: string;
   dimensions: number;
-  entries: VaultEmbeddingEntry[];
+  notes: Record<string, VaultEmbeddingNoteInfo>;
 }
 
 /**
@@ -117,7 +113,7 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
       isAvailable: this.isAvailable(),
       totalEmbeddings: this.cache.size,
       model: this.indexCache?.model ?? 'unknown',
-      provider: this.indexCache?.provider ?? 'unknown',
+      provider: 'vault-embeddings', // Vault Embeddings 플러그인에서 관리
     };
   }
 
@@ -260,10 +256,12 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
       // 새 캐시 구성
       const newCache = new Map<string, EmbeddingVector>();
 
-      // 각 임베딩 파일 로드
-      for (const entry of index.entries) {
+      // 각 임베딩 파일 로드 (noteId를 안전한 파일명으로 변환)
+      for (const [noteId, noteInfo] of Object.entries(index.notes)) {
         try {
-          const embeddingPath = `${this.config.storagePath}/${this.config.embeddingsFolder}/${entry.embeddingFile}`;
+          // noteId를 안전한 파일명으로 변환 (vault-embeddings와 동일한 로직)
+          const safeId = noteId.replace(/[^a-zA-Z0-9-_]/g, '_');
+          const embeddingPath = `${this.config.storagePath}/${this.config.embeddingsFolder}/${safeId}.json`;
           const embeddingFile = this.app.vault.getAbstractFileByPath(embeddingPath);
 
           if (!embeddingFile || !(embeddingFile instanceof TFile)) {
@@ -273,15 +271,15 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
           const content = await this.app.vault.read(embeddingFile);
           const embeddingData: EmbeddingFileContent = JSON.parse(content);
 
-          newCache.set(entry.noteId, {
-            noteId: entry.noteId,
-            notePath: entry.notePath,
+          newCache.set(noteId, {
+            noteId: noteId,
+            notePath: noteInfo.path,
             vector: embeddingData.vector,
             content: '', // 원본 콘텐츠는 저장하지 않음
           });
         } catch (err) {
           // 개별 파일 로드 실패는 무시
-          console.warn(`[VaultEmbeddingsVectorStore] Failed to load embedding: ${entry.embeddingFile}`);
+          console.warn(`[VaultEmbeddingsVectorStore] Failed to load embedding for: ${noteId}`);
         }
       }
 
