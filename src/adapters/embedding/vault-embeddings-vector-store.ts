@@ -241,8 +241,8 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
    */
   private async loadFromVaultEmbeddings(): Promise<void> {
     try {
-      // 인덱스 파일 경로
-      const indexPath = `${this.config.storagePath}/${this.config.embeddingsFolder}/index.json`;
+      // 인덱스 파일 경로 (index.json은 storagePath 루트에 위치)
+      const indexPath = `${this.config.storagePath}/index.json`;
 
       // 인덱스 파일 읽기
       const indexFile = this.app.vault.getAbstractFileByPath(indexPath);
