@@ -148,7 +148,7 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Knowledge Synthesizer v0.3.0',
+      text: `Knowledge Synthesizer v${this.plugin.manifest.version}`,
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
