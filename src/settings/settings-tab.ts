@@ -148,11 +148,15 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
-      text: 'Knowledge Synthesizer v0.2.0',
+      text: 'Knowledge Synthesizer v0.3.0',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
       text: '관련 노트들을 AI로 합성하여 상위 인사이트 노트를 생성합니다.',
+      cls: 'setting-item-description',
+    });
+    aboutEl.createEl('p', {
+      text: '의미 검색은 Vault Embeddings 플러그인의 임베딩 데이터를 사용합니다.',
       cls: 'setting-item-description',
     });
   }
@@ -257,12 +261,24 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
         });
     }
 
+    // Vault Embeddings 연동 안내
+    const infoEl = containerEl.createDiv({ cls: 'setting-item-description' });
+    infoEl.style.marginTop = '15px';
+    infoEl.style.padding = '10px';
+    infoEl.style.backgroundColor = 'var(--background-secondary)';
+    infoEl.style.borderRadius = '5px';
+    infoEl.innerHTML = `
+      <p style="margin: 0 0 5px 0;"><strong>📦 Vault Embeddings 연동</strong></p>
+      <p style="margin: 0; font-size: 0.9em;">노트 임베딩은 <strong>Vault Embeddings</strong> 플러그인이 관리합니다.<br>
+      의미 기반 클러스터링을 사용하려면 Vault Embeddings에서 "Embed All Notes"를 먼저 실행하세요.</p>
+    `;
+
     // Note about embedding
     const noteEl = containerEl.createDiv({ cls: 'setting-item-description' });
     noteEl.style.marginTop = '10px';
     noteEl.style.fontStyle = 'italic';
     noteEl.innerHTML =
-      '※ 의미 기반 클러스터링은 OpenAI API (text-embedding-3-small)를 사용합니다. 태그/폴더 기반 클러스터링은 API 키 없이도 작동합니다.';
+      '※ 의미 기반 클러스터링에는 OpenAI API 키가 필요합니다 (검색 쿼리 임베딩용). 태그/폴더 기반 클러스터링은 API 키 없이도 작동합니다.';
   }
 
   private populateModelDropdown(dropdown: DropdownComponent, provider: AIProviderType): void {

@@ -7,8 +7,6 @@ import { Plugin } from 'obsidian';
 
 // Domain
 import type { IEmbeddingProvider } from './core/domain/interfaces/embedding-provider.interface';
-import type { IVectorStore } from './core/domain/interfaces/vector-store.interface';
-import type { ISynthesisGenerator } from './core/domain/interfaces/synthesis-generator.interface';
 import type { INoteRepository } from './core/domain/interfaces/note-repository.interface';
 import { AIProviderType, AI_PROVIDERS } from './core/domain/constants';
 
@@ -20,7 +18,7 @@ import { SuggestSynthesisUseCase } from './core/application/use-cases/suggest-sy
 
 // Adapters
 import { OpenAIEmbeddingProvider } from './adapters/embedding/openai-embedding-provider';
-import { InMemoryVectorStore } from './adapters/embedding/in-memory-vector-store';
+import { VaultEmbeddingsVectorStore } from './adapters/embedding/vault-embeddings-vector-store';
 import { LLMSynthesisGenerator, LLMConfig } from './adapters/llm/llm-synthesis-generator';
 import { ObsidianNoteRepository } from './adapters/obsidian/obsidian-note-repository';
 
@@ -36,7 +34,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
 
   // Services
   private embeddingProvider: IEmbeddingProvider | null = null;
-  private vectorStore: IVectorStore | null = null;
+  private vectorStore: VaultEmbeddingsVectorStore | null = null;
   private synthesisGenerator: LLMSynthesisGenerator | null = null;
   private noteRepository: INoteRepository | null = null;
   private embeddingService: EmbeddingService | null = null;
@@ -53,7 +51,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
     await this.loadSettings();
 
     // 서비스 초기화
-    this.initializeServices();
+    await this.initializeServices();
 
     // 뷰 등록
     this.registerView(SYNTHESIS_VIEW_TYPE, (leaf) => new SynthesisView(leaf, this));
@@ -93,7 +91,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
     // 서비스 재초기화
-    this.initializeServices();
+    await this.initializeServices();
   }
 
   /**
@@ -158,7 +156,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   /**
    * 서비스 초기화
    */
-  private initializeServices(): void {
+  private async initializeServices(): Promise<void> {
     const currentProvider = this.settings.ai.provider;
     const llmApiKey = this.settings.ai.apiKeys[currentProvider];
 
@@ -172,16 +170,31 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
       // Note Repository (항상 필요)
       this.noteRepository = new ObsidianNoteRepository(this.app);
 
-      // Embedding Provider & Vector Store (OpenAI API 키 필요)
+      // Embedding Provider (쿼리 임베딩용 - OpenAI API 키 필요)
       const openaiApiKey = this.settings.ai.apiKeys.openai;
       if (openaiApiKey) {
         this.embeddingProvider = new OpenAIEmbeddingProvider(openaiApiKey);
-        this.vectorStore = new InMemoryVectorStore();
-        this.embeddingService = new EmbeddingService(this.embeddingProvider, this.vectorStore);
       } else {
-        console.log('Knowledge Synthesizer: OpenAI API key not configured for embeddings');
+        console.log('Knowledge Synthesizer: OpenAI API key not configured for query embeddings');
         this.embeddingProvider = null;
-        this.vectorStore = null;
+      }
+
+      // Vector Store (Vault Embeddings에서 읽기)
+      this.vectorStore = new VaultEmbeddingsVectorStore(this.app, {
+        storagePath: '09_Embedded',
+        embeddingsFolder: 'embeddings',
+      });
+      await this.vectorStore.initialize();
+
+      // Embedding Service (쿼리 임베딩 + 검색)
+      if (this.embeddingProvider && this.vectorStore.isAvailable()) {
+        this.embeddingService = new EmbeddingService(this.embeddingProvider, this.vectorStore);
+        console.log(`Knowledge Synthesizer: Loaded ${this.vectorStore.size()} embeddings from Vault Embeddings`);
+      } else if (!this.embeddingProvider) {
+        console.log('Knowledge Synthesizer: No OpenAI API key - semantic clustering disabled');
+        this.embeddingService = null;
+      } else {
+        console.log('Knowledge Synthesizer: No Vault Embeddings data - semantic clustering disabled');
         this.embeddingService = null;
       }
 

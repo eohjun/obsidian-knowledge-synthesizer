@@ -1,6 +1,9 @@
 /**
  * Cluster Notes Use Case
  * 노트 클러스터링 유스케이스
+ *
+ * 노트 임베딩은 Vault Embeddings 플러그인이 관리.
+ * 이 유스케이스는 저장된 임베딩을 사용하여 클러스터링만 수행.
  */
 
 import type { INoteRepository } from '../../domain/interfaces/note-repository.interface';
@@ -10,7 +13,7 @@ import {
   ClusterMember,
   createNoteCluster,
 } from '../../domain/entities/note-cluster';
-import type { EmbeddingService, EmbedNoteInput } from '../services/embedding-service';
+import type { EmbeddingService } from '../services/embedding-service';
 
 export interface ClusterOptions {
   excludedFolders?: string[];
@@ -51,24 +54,31 @@ export class ClusterNotesUseCase {
   }
 
   /**
+   * 임베딩이 있는 노트만 필터링
+   */
+  private filterNotesWithEmbeddings(notes: NoteContent[]): NoteContent[] {
+    return notes.filter(note => this.embeddingService.hasEmbedding(note.noteId));
+  }
+
+  /**
    * 태그 기반 클러스터링
    */
   async clusterByTag(tag: string): Promise<NoteCluster> {
     const allNotes = await this.noteRepository.getNotesByTag(tag);
     const notes = this.filterExcludedNotes(allNotes);
+    const notesWithEmbeddings = this.filterNotesWithEmbeddings(notes);
 
-    if (notes.length === 0) {
-      return createNoteCluster(`#${tag}`, [], 'tag', 0);
+    if (notesWithEmbeddings.length === 0) {
+      // 임베딩이 없어도 태그 기반 클러스터 생성 (응집도는 0)
+      const members = this.createMembers(notes);
+      return createNoteCluster(`#${tag}`, members, 'tag', 0);
     }
 
-    // 임베딩 생성
-    await this.embedNotes(notes);
-
     // 클러스터 멤버 생성
-    const members = this.createMembers(notes);
+    const members = this.createMembers(notesWithEmbeddings);
 
     // 응집도 계산
-    const coherenceScore = await this.calculateCoherence(notes);
+    const coherenceScore = this.calculateCoherence(notesWithEmbeddings);
 
     return createNoteCluster(`#${tag}`, members, 'tag', coherenceScore);
   }
@@ -78,14 +88,15 @@ export class ClusterNotesUseCase {
    */
   async clusterByFolder(folder: string): Promise<NoteCluster> {
     const notes = await this.noteRepository.getNotesByFolder(folder);
+    const notesWithEmbeddings = this.filterNotesWithEmbeddings(notes);
 
-    if (notes.length === 0) {
-      return createNoteCluster(folder, [], 'folder', 0);
+    if (notesWithEmbeddings.length === 0) {
+      const members = this.createMembers(notes);
+      return createNoteCluster(folder, members, 'folder', 0);
     }
 
-    await this.embedNotes(notes);
-    const members = this.createMembers(notes);
-    const coherenceScore = await this.calculateCoherence(notes);
+    const members = this.createMembers(notesWithEmbeddings);
+    const coherenceScore = this.calculateCoherence(notesWithEmbeddings);
 
     return createNoteCluster(folder, members, 'folder', coherenceScore);
   }
@@ -110,12 +121,21 @@ export class ClusterNotesUseCase {
       return createNoteCluster('Unknown', [], 'similarity', 0);
     }
 
-    // 시드 노트 임베딩
-    await this.embeddingService.embedNote({
-      noteId: seedNote.noteId,
-      notePath: seedNote.notePath,
-      content: `${seedNote.title}\n\n${seedNote.content}`,
-    });
+    // 시드 노트에 임베딩이 없으면 빈 클러스터 반환
+    if (!this.embeddingService.hasEmbedding(seedNoteId)) {
+      console.warn(`[ClusterNotesUseCase] No embedding for seed note: ${seedNoteId}. Run Vault Embeddings first.`);
+      return createNoteCluster(
+        `Similar to: ${seedNote.title}`,
+        [{
+          noteId: seedNote.noteId,
+          notePath: seedNote.notePath,
+          title: seedNote.title,
+          similarity: 1.0,
+        }],
+        'similarity',
+        0
+      );
+    }
 
     // 유사 노트 검색 (제외 폴더 필터링)
     const allSimilarNotes = this.embeddingService.findSimilarByNoteId(seedNoteId, {
@@ -182,23 +202,15 @@ export class ClusterNotesUseCase {
       return createNoteCluster(name, [], 'manual', 0);
     }
 
-    await this.embedNotes(notes);
+    const notesWithEmbeddings = this.filterNotesWithEmbeddings(notes);
     const members = this.createMembers(notes);
-    const coherenceScore = await this.calculateCoherence(notes);
+
+    // 임베딩이 있는 노트로만 응집도 계산
+    const coherenceScore = notesWithEmbeddings.length >= 2
+      ? this.calculateCoherence(notesWithEmbeddings)
+      : 0;
 
     return createNoteCluster(name, members, 'manual', coherenceScore);
-  }
-
-  /**
-   * 노트들의 임베딩 생성
-   */
-  private async embedNotes(notes: NoteContent[]): Promise<void> {
-    const inputs: EmbedNoteInput[] = notes.map((note) => ({
-      noteId: note.noteId,
-      notePath: note.notePath,
-      content: `${note.title}\n\n${note.content}`,
-    }));
-    await this.embeddingService.embedNotes(inputs);
   }
 
   /**
@@ -216,7 +228,7 @@ export class ClusterNotesUseCase {
   /**
    * 클러스터 응집도 계산 (멤버 간 평균 유사도)
    */
-  private async calculateCoherence(notes: NoteContent[]): Promise<number> {
+  private calculateCoherence(notes: NoteContent[]): number {
     if (notes.length < 2) {
       return 1.0;
     }

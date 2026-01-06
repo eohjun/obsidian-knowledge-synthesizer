@@ -5,3 +5,4 @@
 
 export * from './openai-embedding-provider';
 export * from './in-memory-vector-store';
+export * from './vault-embeddings-vector-store';

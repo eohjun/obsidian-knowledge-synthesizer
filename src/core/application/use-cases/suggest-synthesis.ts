@@ -132,7 +132,8 @@ export class SuggestSynthesisUseCase {
   }
 
   /**
-   * 모든 방식을 종합한 추천
+   * 의미 기반 추천 (임베딩 유사도 클러스터링)
+   * 태그/폴더 기반은 효용성이 낮아 제거됨
    */
   async suggestAll(
     recentNoteIds: string[],
@@ -140,21 +141,13 @@ export class SuggestSynthesisUseCase {
   ): Promise<SynthesisSuggestion[]> {
     const maxSuggestions = options?.maxSuggestions ?? 10;
 
-    // 각 방식으로 추천 생성
-    const [tagSuggestions, folderSuggestions, similaritySuggestions] = await Promise.all([
-      this.suggestByTags({ ...options, maxSuggestions: 5 }),
-      this.suggestByFolders({ ...options, maxSuggestions: 3 }),
-      this.suggestBySimilarity(recentNoteIds, { ...options, maxSuggestions: 3 }),
-    ]);
+    // 유사도 기반 추천만 사용 (태그/폴더 기반은 효용성이 낮음)
+    const similaritySuggestions = await this.suggestBySimilarity(
+      recentNoteIds,
+      { ...options, maxSuggestions }
+    );
 
-    // 중복 제거 및 병합
-    const allSuggestions = this.deduplicateSuggestions([
-      ...tagSuggestions,
-      ...folderSuggestions,
-      ...similaritySuggestions,
-    ]);
-
-    return this.sortAndLimit(allSuggestions, maxSuggestions);
+    return this.deduplicateSuggestions(similaritySuggestions);
   }
 
   /**
