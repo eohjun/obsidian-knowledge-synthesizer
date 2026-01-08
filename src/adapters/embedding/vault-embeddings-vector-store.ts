@@ -6,7 +6,7 @@
  * 이 저장소는 저장된 임베딩을 읽어서 유사도 검색에 사용.
  */
 
-import { App, TFile } from 'obsidian';
+import { App, TFile, normalizePath } from 'obsidian';
 import type {
   IVectorStore,
   VectorSearchResult,
@@ -234,22 +234,31 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
 
   /**
    * Vault Embeddings에서 데이터 로드
+   * adapter 폴백으로 Git 동기화 시 인덱스 불일치 문제 해결
    */
   private async loadFromVaultEmbeddings(): Promise<void> {
     try {
-      // 인덱스 파일 경로 (index.json은 storagePath 루트에 위치)
-      const indexPath = `${this.config.storagePath}/index.json`;
+      // 인덱스 파일 경로 (normalizePath로 플랫폼 간 호환성 확보)
+      const indexPath = normalizePath(`${this.config.storagePath}/index.json`);
 
-      // 인덱스 파일 읽기
+      // 인덱스 파일 읽기 (adapter 폴백)
+      let indexContent: string;
       const indexFile = this.app.vault.getAbstractFileByPath(indexPath);
-      if (!indexFile || !(indexFile instanceof TFile)) {
-        console.warn(`[VaultEmbeddingsVectorStore] Index file not found: ${indexPath}`);
-        this.cache.clear();
-        this.indexCache = null;
-        return;
+      if (indexFile instanceof TFile) {
+        indexContent = await this.app.vault.read(indexFile);
+      } else {
+        // Obsidian 인덱스에 없으면 adapter로 직접 읽기 시도
+        try {
+          indexContent = await this.app.vault.adapter.read(indexPath);
+          console.log(`[VaultEmbeddingsVectorStore] Used adapter.read for index`);
+        } catch {
+          console.warn(`[VaultEmbeddingsVectorStore] Index not found: ${indexPath}`);
+          this.cache.clear();
+          this.indexCache = null;
+          return;
+        }
       }
 
-      const indexContent = await this.app.vault.read(indexFile);
       const index: VaultEmbeddingIndex = JSON.parse(indexContent);
       this.indexCache = index;
 
@@ -261,14 +270,22 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
         try {
           // noteId를 안전한 파일명으로 변환 (vault-embeddings와 동일한 로직)
           const safeId = noteId.replace(/[^a-zA-Z0-9-_]/g, '_');
-          const embeddingPath = `${this.config.storagePath}/${this.config.embeddingsFolder}/${safeId}.json`;
-          const embeddingFile = this.app.vault.getAbstractFileByPath(embeddingPath);
+          const embeddingPath = normalizePath(`${this.config.storagePath}/${this.config.embeddingsFolder}/${safeId}.json`);
 
-          if (!embeddingFile || !(embeddingFile instanceof TFile)) {
-            continue;
+          // 임베딩 파일 읽기 (adapter 폴백)
+          let content: string;
+          const embeddingFile = this.app.vault.getAbstractFileByPath(embeddingPath);
+          if (embeddingFile instanceof TFile) {
+            content = await this.app.vault.read(embeddingFile);
+          } else {
+            // adapter로 직접 읽기 시도
+            try {
+              content = await this.app.vault.adapter.read(embeddingPath);
+            } catch {
+              continue; // 파일 없음 - 스킵
+            }
           }
 
-          const content = await this.app.vault.read(embeddingFile);
           const embeddingData: EmbeddingFileContent = JSON.parse(content);
 
           newCache.set(noteId, {

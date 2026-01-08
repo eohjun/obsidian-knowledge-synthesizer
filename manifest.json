@@ -1,7 +1,7 @@
 {
   "id": "knowledge-synthesizer",
   "name": "Knowledge Synthesizer",
-  "version": "0.3.8",
+  "version": "0.3.9",
   "minAppVersion": "1.0.0",
   "description": "Synthesize multiple related notes into higher-level framework insights with AI",
   "author": "eohjun",
