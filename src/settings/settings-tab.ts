@@ -1,6 +1,6 @@
 /**
  * Settings Tab
- * 플러그인 설정 탭 UI
+ * Plugin settings tab UI
  */
 
 import { App, PluginSettingTab, Setting, Notice, DropdownComponent } from 'obsidian';
@@ -20,17 +20,17 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
     const { containerEl } = this;
     containerEl.empty();
 
-    containerEl.createEl('h2', { text: 'Knowledge Synthesizer 설정' });
+    containerEl.createEl('h2', { text: 'Knowledge Synthesizer Settings' });
 
     // AI Settings Section
     this.displayAISettings(containerEl);
 
     // Output Settings
-    containerEl.createEl('h3', { text: '출력 설정' });
+    containerEl.createEl('h3', { text: 'Output Settings' });
 
     new Setting(containerEl)
-      .setName('출력 폴더')
-      .setDesc('합성된 노트를 저장할 폴더')
+      .setName('Output Folder')
+      .setDesc('Folder to save synthesized notes')
       .addText((text) =>
         text
           .setPlaceholder('Synthesized')
@@ -42,8 +42,8 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('제외 폴더')
-      .setDesc('합성 추천에서 제외할 폴더 (쉼표로 구분, 예: 06_Meta, Templates)')
+      .setName('Excluded Folders')
+      .setDesc('Folders to exclude from synthesis suggestions (comma-separated, e.g., 06_Meta, Templates)')
       .addText((text) =>
         text
           .setPlaceholder('06_Meta, Templates')
@@ -58,11 +58,11 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     // Synthesis Options
-    containerEl.createEl('h3', { text: '합성 옵션' });
+    containerEl.createEl('h3', { text: 'Synthesis Options' });
 
     new Setting(containerEl)
-      .setName('역링크 포함')
-      .setDesc('합성된 노트에 원본 노트로의 링크를 포함합니다')
+      .setName('Include Backlinks')
+      .setDesc('Include links to source notes in the synthesized note')
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.defaultSynthesisOptions.includeBacklinks)
@@ -73,8 +73,8 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('자동 태그 제안')
-      .setDesc('원본 노트들의 태그를 분석하여 합성 노트에 태그를 제안합니다')
+      .setName('Auto-suggest Tags')
+      .setDesc('Analyze tags from source notes and suggest tags for the synthesis note')
       .addToggle((toggle) =>
         toggle
           .setValue(this.plugin.settings.defaultSynthesisOptions.autoSuggestTags)
@@ -85,11 +85,11 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('기본 언어')
-      .setDesc('합성 결과의 기본 언어')
+      .setName('Default Language')
+      .setDesc('Default language for synthesis output')
       .addDropdown((dropdown) =>
         dropdown
-          .addOption('ko', '한국어')
+          .addOption('ko', 'Korean')
           .addOption('en', 'English')
           .setValue(this.plugin.settings.defaultSynthesisOptions.language)
           .onChange(async (value) => {
@@ -99,11 +99,11 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     // Cluster Options
-    containerEl.createEl('h3', { text: '클러스터링 옵션' });
+    containerEl.createEl('h3', { text: 'Clustering Options' });
 
     new Setting(containerEl)
-      .setName('최소 클러스터 크기')
-      .setDesc('합성을 추천할 최소 노트 수')
+      .setName('Minimum Cluster Size')
+      .setDesc('Minimum number of notes to recommend synthesis')
       .addSlider((slider) =>
         slider
           .setLimits(2, 10, 1)
@@ -116,8 +116,8 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('최소 응집도')
-      .setDesc('클러스터의 최소 응집도 (0.0 ~ 1.0)')
+      .setName('Minimum Coherence')
+      .setDesc('Minimum coherence score for clusters (0.0 - 1.0)')
       .addSlider((slider) =>
         slider
           .setLimits(0.1, 0.9, 0.1)
@@ -130,8 +130,8 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName('최대 추천 수')
-      .setDesc('한 번에 표시할 최대 합성 추천 수')
+      .setName('Maximum Suggestions')
+      .setDesc('Maximum number of synthesis suggestions to display at once')
       .addSlider((slider) =>
         slider
           .setLimits(3, 20, 1)
@@ -144,7 +144,7 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       );
 
     // About Section
-    containerEl.createEl('h3', { text: '정보' });
+    containerEl.createEl('h3', { text: 'About' });
 
     const aboutEl = containerEl.createDiv({ cls: 'setting-item' });
     aboutEl.createEl('p', {
@@ -152,25 +152,25 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
-      text: '관련 노트들을 AI로 합성하여 상위 인사이트 노트를 생성합니다.',
+      text: 'Synthesizes related notes with AI to generate higher-level insight notes.',
       cls: 'setting-item-description',
     });
     aboutEl.createEl('p', {
-      text: '의미 검색은 Vault Embeddings 플러그인의 임베딩 데이터를 사용합니다.',
+      text: 'Semantic search uses embedding data from the Vault Embeddings plugin.',
       cls: 'setting-item-description',
     });
   }
 
   private displayAISettings(containerEl: HTMLElement): void {
-    containerEl.createEl('h3', { text: 'AI 설정' });
+    containerEl.createEl('h3', { text: 'AI Settings' });
 
     const currentProvider = this.plugin.settings.ai.provider;
     const currentProviderConfig = AI_PROVIDERS[currentProvider];
 
     // Provider selection
     new Setting(containerEl)
-      .setName('AI 프로바이더')
-      .setDesc('사용할 AI 서비스를 선택하세요')
+      .setName('AI Provider')
+      .setDesc('Select the AI service to use')
       .addDropdown((dropdown) => {
         Object.entries(AI_PROVIDERS).forEach(([key, config]) => {
           dropdown.addOption(key, config.displayName);
@@ -185,11 +185,11 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
 
     // API Key input with Test button
     new Setting(containerEl)
-      .setName(`${currentProviderConfig.displayName} API 키`)
+      .setName(`${currentProviderConfig.displayName} API Key`)
       .setDesc(this.getApiKeyDescription(currentProvider))
       .addText((text) => {
         text
-          .setPlaceholder('API 키 입력')
+          .setPlaceholder('Enter API key')
           .setValue(this.plugin.settings.ai.apiKeys[currentProvider] ?? '')
           .onChange(async (value) => {
             this.plugin.settings.ai.apiKeys[currentProvider] = value;
@@ -199,38 +199,38 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
         text.inputEl.style.width = '300px';
       })
       .addButton((button) => {
-        button.setButtonText('테스트').onClick(async () => {
+        button.setButtonText('Test').onClick(async () => {
           const apiKey = this.plugin.settings.ai.apiKeys[currentProvider];
 
           if (!apiKey) {
-            new Notice('API 키를 먼저 입력해주세요.');
+            new Notice('Please enter an API key first.');
             return;
           }
 
           button.setDisabled(true);
-          button.setButtonText('테스트 중...');
+          button.setButtonText('Testing...');
 
           try {
             const isValid = await this.plugin.testApiKey(currentProvider, apiKey);
             if (isValid) {
-              new Notice(`✅ ${currentProviderConfig.displayName} API 키가 유효합니다!`);
+              new Notice(`✅ ${currentProviderConfig.displayName} API key is valid!`);
             } else {
-              new Notice(`❌ ${currentProviderConfig.displayName} API 키가 유효하지 않습니다.`);
+              new Notice(`❌ ${currentProviderConfig.displayName} API key is invalid.`);
             }
           } catch (error) {
-            const message = error instanceof Error ? error.message : '알 수 없는 오류';
-            new Notice(`❌ 테스트 실패: ${message}`);
+            const message = error instanceof Error ? error.message : 'Unknown error';
+            new Notice(`❌ Test failed: ${message}`);
           } finally {
             button.setDisabled(false);
-            button.setButtonText('테스트');
+            button.setButtonText('Test');
           }
         });
       });
 
     // Model selection
     new Setting(containerEl)
-      .setName('모델')
-      .setDesc('사용할 모델을 선택하세요')
+      .setName('Model')
+      .setDesc('Select the model to use')
       .addDropdown((dropdown) => {
         this.modelDropdown = dropdown;
         this.populateModelDropdown(dropdown, currentProvider);
@@ -243,11 +243,11 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
         });
       });
 
-    // OpenAI API Key for embeddings (별도 - 현재 프로바이더가 OpenAI가 아닌 경우만 표시)
+    // OpenAI API Key for embeddings (separate - only shown when current provider is not OpenAI)
     if (currentProvider !== 'openai') {
       new Setting(containerEl)
-        .setName('OpenAI API 키 (임베딩 전용)')
-        .setDesc('의미 기반 검색에 사용할 OpenAI API 키')
+        .setName('OpenAI API Key (Embeddings Only)')
+        .setDesc('OpenAI API key for semantic search')
         .addText((text) => {
           text
             .setPlaceholder('sk-...')
@@ -261,16 +261,16 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
         });
     }
 
-    // Vault Embeddings 연동 안내
+    // Vault Embeddings integration info
     const infoEl = containerEl.createDiv({ cls: 'setting-item-description' });
     infoEl.style.marginTop = '15px';
     infoEl.style.padding = '10px';
     infoEl.style.backgroundColor = 'var(--background-secondary)';
     infoEl.style.borderRadius = '5px';
     infoEl.innerHTML = `
-      <p style="margin: 0 0 5px 0;"><strong>📦 Vault Embeddings 연동</strong></p>
-      <p style="margin: 0; font-size: 0.9em;">노트 임베딩은 <strong>Vault Embeddings</strong> 플러그인이 관리합니다.<br>
-      의미 기반 클러스터링을 사용하려면 Vault Embeddings에서 "Embed All Notes"를 먼저 실행하세요.</p>
+      <p style="margin: 0 0 5px 0;"><strong>📦 Vault Embeddings Integration</strong></p>
+      <p style="margin: 0; font-size: 0.9em;">Note embeddings are managed by the <strong>Vault Embeddings</strong> plugin.<br>
+      To use semantic clustering, run "Embed All Notes" in Vault Embeddings first.</p>
     `;
 
     // Note about embedding
@@ -278,7 +278,7 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
     noteEl.style.marginTop = '10px';
     noteEl.style.fontStyle = 'italic';
     noteEl.innerHTML =
-      '※ 의미 기반 클러스터링에는 OpenAI API 키가 필요합니다 (검색 쿼리 임베딩용). 태그/폴더 기반 클러스터링은 API 키 없이도 작동합니다.';
+      '※ Semantic clustering requires an OpenAI API key (for query embeddings). Tag/folder-based clustering works without an API key.';
   }
 
   private populateModelDropdown(dropdown: DropdownComponent, provider: AIProviderType): void {
@@ -291,15 +291,15 @@ export class KnowledgeSynthesizerSettingTab extends PluginSettingTab {
   private getApiKeyDescription(provider: AIProviderType): string {
     switch (provider) {
       case 'claude':
-        return 'https://console.anthropic.com 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://console.anthropic.com';
       case 'openai':
-        return 'https://platform.openai.com 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://platform.openai.com';
       case 'gemini':
-        return 'https://aistudio.google.com 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://aistudio.google.com';
       case 'grok':
-        return 'https://console.x.ai 에서 발급받을 수 있습니다.';
+        return 'Get your API key from https://console.x.ai';
       default:
-        return 'API 키를 입력하세요.';
+        return 'Enter your API key.';
     }
   }
 }

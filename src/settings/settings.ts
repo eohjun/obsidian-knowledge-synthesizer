@@ -1,42 +1,42 @@
 /**
  * Plugin Settings
- * 플러그인 설정 인터페이스
+ * Plugin settings interface
  */
 
 import { AIProviderType, AI_PROVIDERS } from '../core/domain/constants';
 
 export interface AISettings {
-  /** 현재 선택된 프로바이더 */
+  /** Currently selected provider */
   provider: AIProviderType;
-  /** 프로바이더별 API 키 */
+  /** API keys by provider */
   apiKeys: Partial<Record<AIProviderType, string>>;
-  /** 프로바이더별 선택된 모델 */
+  /** Selected model by provider */
   models: Record<AIProviderType, string>;
 }
 
 export interface KnowledgeSynthesizerSettings {
-  /** AI 설정 */
+  /** AI settings */
   ai: AISettings;
-  /** 합성 결과 저장 폴더 */
+  /** Folder to save synthesis results */
   outputFolder: string;
-  /** 제외할 폴더 목록 (Daily notes, Templates 등) */
+  /** Folders to exclude (Daily notes, Templates, etc.) */
   excludedFolders: string[];
-  /** 기본 합성 옵션 */
+  /** Default synthesis options */
   defaultSynthesisOptions: {
-    /** 역링크 포함 여부 */
+    /** Whether to include backlinks */
     includeBacklinks: boolean;
-    /** 자동 태그 제안 */
+    /** Auto-suggest tags */
     autoSuggestTags: boolean;
-    /** 기본 언어 */
+    /** Default language */
     language: 'ko' | 'en';
   };
-  /** 클러스터링 옵션 */
+  /** Clustering options */
   clusterOptions: {
-    /** 최소 클러스터 크기 */
+    /** Minimum cluster size */
     minClusterSize: number;
-    /** 최소 응집도 */
+    /** Minimum coherence score */
     minCoherence: number;
-    /** 최대 추천 수 */
+    /** Maximum number of suggestions */
     maxSuggestions: number;
   };
 }

@@ -1,6 +1,6 @@
 /**
  * Knowledge Synthesizer Plugin
- * 관련 노트들을 AI로 합성하여 상위 인사이트 노트 생성
+ * Synthesizes related notes with AI to generate higher-level insight notes
  */
 
 import { Plugin } from 'obsidian';
@@ -47,16 +47,16 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   async onload(): Promise<void> {
     console.log('Loading Knowledge Synthesizer Plugin');
 
-    // 설정 로드
+    // Load settings
     await this.loadSettings();
 
-    // 서비스 초기화
+    // Initialize services
     await this.initializeServices();
 
-    // 뷰 등록
+    // Register view
     this.registerView(SYNTHESIS_VIEW_TYPE, (leaf) => new SynthesisView(leaf, this));
 
-    // 명령어 등록
+    // Register commands
     this.addCommand({
       id: 'open-synthesis-view',
       name: 'Open Synthesis View',
@@ -69,33 +69,33 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
       callback: () => this.synthesizeCurrentTag(),
     });
 
-    // 설정 탭 등록
+    // Register settings tab
     this.addSettingTab(new KnowledgeSynthesizerSettingTab(this.app, this));
 
-    // 리본 아이콘
+    // Ribbon icon
     this.addRibbonIcon('layers', 'Knowledge Synthesizer', () => this.activateView());
   }
 
   async onunload(): Promise<void> {
     console.log('Unloading Knowledge Synthesizer Plugin');
-    // 벡터 스토어 정리
+    // Clean up vector store
     this.vectorStore?.clear();
   }
 
   async loadSettings(): Promise<void> {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    // 이전 설정과의 호환성 처리
+    // Handle compatibility with previous settings
     this.migrateSettings();
   }
 
   async saveSettings(): Promise<void> {
     await this.saveData(this.settings);
-    // 서비스 재초기화
+    // Reinitialize services
     await this.initializeServices();
   }
 
   /**
-   * 이전 설정에서 새 설정으로 마이그레이션
+   * Migrate from previous settings to new settings format
    */
   private migrateSettings(): void {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -132,7 +132,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   }
 
   /**
-   * 플러그인이 올바르게 설정되었는지 확인
+   * Check if the plugin is properly configured
    */
   isConfigured(): boolean {
     const currentProvider = this.settings.ai.provider;
@@ -141,7 +141,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   }
 
   /**
-   * API 키 테스트
+   * Test API key validity
    */
   async testApiKey(provider: AIProviderType, apiKey: string): Promise<boolean> {
     const model = this.settings.ai.models[provider] ?? AI_PROVIDERS[provider].defaultModel;
@@ -154,23 +154,23 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   }
 
   /**
-   * 서비스 초기화
+   * Initialize services
    */
   private async initializeServices(): Promise<void> {
     const currentProvider = this.settings.ai.provider;
     const llmApiKey = this.settings.ai.apiKeys[currentProvider];
 
-    // LLM API 키가 없으면 합성 서비스 초기화하지 않음
+    // Don't initialize synthesis service if LLM API key is missing
     if (!llmApiKey) {
       console.log('Knowledge Synthesizer: LLM API key not configured');
       return;
     }
 
     try {
-      // Note Repository (항상 필요)
+      // Note Repository (always required)
       this.noteRepository = new ObsidianNoteRepository(this.app);
 
-      // Embedding Provider (쿼리 임베딩용 - OpenAI API 키 필요)
+      // Embedding Provider (for query embeddings - requires OpenAI API key)
       const openaiApiKey = this.settings.ai.apiKeys.openai;
       if (openaiApiKey) {
         this.embeddingProvider = new OpenAIEmbeddingProvider(openaiApiKey);
@@ -179,14 +179,14 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
         this.embeddingProvider = null;
       }
 
-      // Vector Store (Vault Embeddings에서 읽기)
+      // Vector Store (read from Vault Embeddings)
       this.vectorStore = new VaultEmbeddingsVectorStore(this.app, {
         storagePath: '09_Embedded',
         embeddingsFolder: 'embeddings',
       });
       await this.vectorStore.initialize();
 
-      // Embedding Service (쿼리 임베딩 + 검색)
+      // Embedding Service (query embedding + search)
       if (this.embeddingProvider && this.vectorStore.isAvailable()) {
         this.embeddingService = new EmbeddingService(this.embeddingProvider, this.vectorStore);
         console.log(`Knowledge Synthesizer: Loaded ${this.vectorStore.size()} embeddings from Vault Embeddings`);
@@ -206,13 +206,13 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
       };
       this.synthesisGenerator = new LLMSynthesisGenerator(llmConfig);
 
-      // Use Cases (embeddingService가 있을 때만 ClusterNotesUseCase 생성)
+      // Use Cases (only create ClusterNotesUseCase when embeddingService is available)
       if (this.embeddingService) {
         this.clusterNotesUseCase = new ClusterNotesUseCase(
           this.embeddingService,
           this.noteRepository
         );
-        // 제외 폴더 설정
+        // Set excluded folders
         this.clusterNotesUseCase.setExcludedFolders(this.settings.excludedFolders);
       }
 
@@ -235,7 +235,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   }
 
   /**
-   * 합성 뷰 활성화
+   * Activate synthesis view
    */
   private async activateView(): Promise<void> {
     const { workspace } = this.app;
@@ -253,7 +253,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
     if (leaf) {
       workspace.revealLeaf(leaf);
 
-      // 뷰가 열리면 추천 로드
+      // Load suggestions when view opens
       const view = leaf.view;
       if (view instanceof SynthesisView) {
         await view.loadSuggestions();
@@ -262,7 +262,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
   }
 
   /**
-   * 현재 노트의 주요 태그로 합성
+   * Synthesize using the current note's primary tag
    */
   private async synthesizeCurrentTag(): Promise<void> {
     const activeFile = this.app.workspace.getActiveFile();
@@ -275,7 +275,7 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
       return;
     }
 
-    // 첫 번째 태그 사용
+    // Use the first tag
     const tag = cache.tags[0].tag.replace(/^#/, '');
 
     if (!this.clusterNotesUseCase || !this.synthesizeNotesUseCase) {

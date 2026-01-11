@@ -1,6 +1,6 @@
 /**
  * Synthesis View
- * 합성 사이드바 뷰
+ * Synthesis sidebar view
  */
 
 import { ItemView, WorkspaceLeaf, Notice, setIcon } from 'obsidian';
@@ -40,7 +40,7 @@ export class SynthesisView extends ItemView {
   }
 
   async onClose(): Promise<void> {
-    // 정리 작업
+    // Cleanup
   }
 
   private async render(): Promise<void> {
@@ -48,39 +48,39 @@ export class SynthesisView extends ItemView {
     container.empty();
     container.addClass('synthesis-view-container');
 
-    // 헤더
+    // Header
     const header = container.createDiv({ cls: 'synthesis-view-header' });
     header.createEl('h4', { text: 'Knowledge Synthesizer' });
 
-    // API 키 확인
+    // API key check
     if (!this.plugin.isConfigured()) {
       const warning = container.createDiv({ cls: 'synthesis-warning' });
-      warning.createEl('p', { text: '⚠️ API 키가 설정되지 않았습니다.' });
-      warning.createEl('p', { text: '설정에서 OpenAI API 키를 입력하세요.' });
+      warning.createEl('p', { text: '⚠️ API key not configured.' });
+      warning.createEl('p', { text: 'Please enter your API key in settings.' });
       return;
     }
 
-    // 새로고침 버튼
+    // Refresh button
     const actions = container.createDiv({ cls: 'synthesis-actions' });
-    const refreshBtn = actions.createEl('button', { text: '추천 새로고침' });
+    const refreshBtn = actions.createEl('button', { text: 'Refresh Suggestions' });
     refreshBtn.addEventListener('click', () => this.loadSuggestions());
 
-    // 로딩 상태
+    // Loading state
     if (this.isLoading) {
       const loading = container.createDiv({ cls: 'synthesis-loading' });
       loading.createDiv({ cls: 'synthesis-loading-spinner' });
-      loading.createEl('p', { text: this.loadingMessage || '분석 중...', cls: 'synthesis-loading-text' });
+      loading.createEl('p', { text: this.loadingMessage || 'Analyzing...', cls: 'synthesis-loading-text' });
       if (this.loadingStage) {
         loading.createEl('p', { text: this.loadingStage, cls: 'synthesis-loading-stage' });
       }
       return;
     }
 
-    // 추천 목록
+    // Suggestions list
     if (this.suggestions.length === 0) {
       const empty = container.createDiv({ cls: 'synthesis-empty' });
-      empty.createEl('p', { text: '합성 가능한 클러스터가 없습니다.' });
-      empty.createEl('p', { text: '노트를 추가하거나 태그를 사용해보세요.' });
+      empty.createEl('p', { text: 'No synthesizable clusters found.' });
+      empty.createEl('p', { text: 'Try adding more notes or using tags.' });
       return;
     }
 
@@ -94,7 +94,7 @@ export class SynthesisView extends ItemView {
   private renderSuggestion(container: HTMLElement, suggestion: SynthesisSuggestion): void {
     const card = container.createDiv({ cls: 'synthesis-suggestion-card' });
 
-    // 헤더
+    // Header
     const cardHeader = card.createDiv({ cls: 'suggestion-header' });
 
     const priorityIcon = cardHeader.createSpan({ cls: `priority-icon priority-${suggestion.priority}` });
@@ -102,17 +102,17 @@ export class SynthesisView extends ItemView {
 
     cardHeader.createEl('span', { text: suggestion.cluster.name, cls: 'suggestion-title' });
 
-    // 정보
+    // Info
     const info = card.createDiv({ cls: 'suggestion-info' });
-    info.createEl('span', { text: `${suggestion.cluster.members.length}개 노트` });
-    info.createEl('span', { text: `응집도: ${(suggestion.cluster.coherenceScore * 100).toFixed(0)}%` });
+    info.createEl('span', { text: `${suggestion.cluster.members.length} notes` });
+    info.createEl('span', { text: `Coherence: ${(suggestion.cluster.coherenceScore * 100).toFixed(0)}%` });
 
-    // 이유
+    // Reason
     card.createEl('p', { text: suggestion.reason, cls: 'suggestion-reason' });
 
-    // 노트 목록 (접을 수 있음)
+    // Note list (collapsible)
     const noteList = card.createDiv({ cls: 'suggestion-notes' });
-    const toggleBtn = noteList.createEl('button', { text: '노트 목록 보기', cls: 'toggle-notes' });
+    const toggleBtn = noteList.createEl('button', { text: 'Show Notes', cls: 'toggle-notes' });
     const noteListContent = noteList.createDiv({ cls: 'note-list-content hidden' });
 
     for (const member of suggestion.cluster.members.slice(0, 10)) {
@@ -120,7 +120,7 @@ export class SynthesisView extends ItemView {
     }
     if (suggestion.cluster.members.length > 10) {
       noteListContent.createEl('div', {
-        text: `... 그 외 ${suggestion.cluster.members.length - 10}개`,
+        text: `... and ${suggestion.cluster.members.length - 10} more`,
         cls: 'note-item more',
       });
     }
@@ -128,19 +128,19 @@ export class SynthesisView extends ItemView {
     toggleBtn.addEventListener('click', () => {
       noteListContent.classList.toggle('hidden');
       toggleBtn.textContent = noteListContent.classList.contains('hidden')
-        ? '노트 목록 보기'
-        : '노트 목록 숨기기';
+        ? 'Show Notes'
+        : 'Hide Notes';
     });
 
-    // 합성 버튼
+    // Synthesis button
     const actions = card.createDiv({ cls: 'suggestion-actions' });
 
     const typeSelect = actions.createEl('select', { cls: 'synthesis-type-select' });
     const types: { value: SynthesisType; label: string }[] = [
-      { value: 'framework', label: '종합 프레임워크' },
-      { value: 'summary', label: '요약' },
-      { value: 'comparison', label: '비교 분석' },
-      { value: 'timeline', label: '타임라인' },
+      { value: 'framework', label: 'Comprehensive Framework' },
+      { value: 'summary', label: 'Summary' },
+      { value: 'comparison', label: 'Comparative Analysis' },
+      { value: 'timeline', label: 'Timeline' },
     ];
     for (const type of types) {
       const option = typeSelect.createEl('option', { value: type.value, text: type.label });
@@ -149,7 +149,7 @@ export class SynthesisView extends ItemView {
       }
     }
 
-    const synthesizeBtn = actions.createEl('button', { text: '합성하기', cls: 'mod-cta' });
+    const synthesizeBtn = actions.createEl('button', { text: 'Synthesize', cls: 'mod-cta' });
     synthesizeBtn.addEventListener('click', async () => {
       const selectedType = typeSelect.value as SynthesisType;
       await this.synthesize(suggestion, selectedType);
@@ -169,17 +169,17 @@ export class SynthesisView extends ItemView {
 
   async loadSuggestions(): Promise<void> {
     if (!this.plugin.suggestSynthesisUseCase) {
-      new Notice('서비스가 초기화되지 않았습니다.');
+      new Notice('Service not initialized.');
       return;
     }
 
     this.isLoading = true;
-    this.loadingMessage = '노트를 분석하고 있습니다...';
-    this.loadingStage = '관련 노트 수집 중';
+    this.loadingMessage = 'Analyzing notes...';
+    this.loadingStage = 'Collecting related notes';
     await this.render();
 
     try {
-      // 현재 열린 파일 및 몇 가지 파일 ID 가져오기 (hash 기반 - Vault Embeddings 호환)
+      // Get current file and some file IDs (hash-based - Vault Embeddings compatible)
       const activeFile = this.app.workspace.getActiveFile();
       const recentNoteIds: string[] = [];
 
@@ -187,7 +187,7 @@ export class SynthesisView extends ItemView {
         recentNoteIds.push(generateNoteId(activeFile.path));
       }
 
-      // 추가로 몇 개의 마크다운 파일을 가져옴
+      // Get a few additional markdown files
       const mdFiles = this.app.vault.getMarkdownFiles().slice(0, 5);
       for (const file of mdFiles) {
         const noteId = generateNoteId(file.path);
@@ -196,9 +196,9 @@ export class SynthesisView extends ItemView {
         }
       }
 
-      // 로딩 메시지 업데이트
-      this.loadingMessage = '클러스터를 분석하고 있습니다...';
-      this.loadingStage = '태그 및 폴더 기반 그룹화';
+      // Update loading message
+      this.loadingMessage = 'Analyzing clusters...';
+      this.loadingStage = 'Grouping by tags and folders';
       await this.render();
 
       this.suggestions = await this.plugin.suggestSynthesisUseCase.suggestAll(recentNoteIds, {
@@ -209,7 +209,7 @@ export class SynthesisView extends ItemView {
       });
     } catch (error) {
       console.error('Failed to load suggestions:', error);
-      new Notice('추천 로드 실패: ' + (error instanceof Error ? error.message : String(error)));
+      new Notice('Failed to load suggestions: ' + (error instanceof Error ? error.message : String(error)));
     } finally {
       this.isLoading = false;
       this.loadingMessage = '';
@@ -220,11 +220,11 @@ export class SynthesisView extends ItemView {
 
   private async synthesize(suggestion: SynthesisSuggestion, type: SynthesisType): Promise<void> {
     if (!this.plugin.synthesizeNotesUseCase) {
-      new Notice('서비스가 초기화되지 않았습니다.');
+      new Notice('Service not initialized.');
       return;
     }
 
-    new Notice('합성 중...');
+    new Notice('Synthesizing...');
 
     try {
       const { result } = await this.plugin.synthesizeNotesUseCase.execute({
@@ -233,22 +233,22 @@ export class SynthesisView extends ItemView {
         options: this.plugin.settings.defaultSynthesisOptions,
       });
 
-      // 결과 저장
+      // Save result
       const filePath = await this.plugin.synthesizeNotesUseCase.saveResult(
         result,
         this.plugin.settings.outputFolder
       );
 
-      new Notice(`합성 완료: ${result.title}`);
+      new Notice(`Synthesis complete: ${result.title}`);
 
-      // 생성된 파일 열기
+      // Open the generated file
       const file = this.app.vault.getFileByPath(filePath);
       if (file) {
         await this.app.workspace.getLeaf().openFile(file);
       }
     } catch (error) {
       console.error('Synthesis failed:', error);
-      new Notice('합성 실패: ' + (error instanceof Error ? error.message : String(error)));
+      new Notice('Synthesis failed: ' + (error instanceof Error ? error.message : String(error)));
     }
   }
 }
