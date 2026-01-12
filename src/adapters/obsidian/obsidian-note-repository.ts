@@ -3,7 +3,7 @@
  * Obsidian Vault를 사용한 노트 저장소 구현
  */
 
-import type { App, TFile, CachedMetadata } from 'obsidian';
+import { normalizePath, type App, type TFile, type CachedMetadata } from 'obsidian';
 import type { INoteRepository } from '../../core/domain/interfaces/note-repository.interface';
 import type { NoteContent } from '../../core/domain/interfaces/synthesis-generator.interface';
 import { generateNoteId } from '../../core/domain/utils/note-id';
@@ -26,11 +26,11 @@ export class ObsidianNoteRepository implements INoteRepository {
   }
 
   /**
-   * 노트 경로로 조회
+   * 노트 경로로 조회 (cross-platform safe)
    */
   async getNoteByPath(path: string): Promise<NoteContent | null> {
-    // getFileByPath는 TFile | null을 반환
-    const file = this.app.vault.getFileByPath(path);
+    const normalizedPath = normalizePath(path);
+    const file = this.app.vault.getFileByPath(normalizedPath);
     if (!file) {
       return null;
     }
@@ -58,15 +58,16 @@ export class ObsidianNoteRepository implements INoteRepository {
   }
 
   /**
-   * 폴더로 노트 목록 조회
+   * 폴더로 노트 목록 조회 (cross-platform safe)
    */
   async getNotesByFolder(folder: string): Promise<NoteContent[]> {
     const notes: NoteContent[] = [];
     const files = this.app.vault.getMarkdownFiles();
+    const normalizedFolder = normalizePath(folder);
 
     for (const file of files) {
       const fileFolder = file.parent?.path || '';
-      if (fileFolder === folder || fileFolder.startsWith(folder + '/')) {
+      if (fileFolder === normalizedFolder || fileFolder.startsWith(normalizedFolder + '/')) {
         const note = await this.fileToNoteContent(file);
         if (note) {
           notes.push(note);
@@ -95,26 +96,46 @@ export class ObsidianNoteRepository implements INoteRepository {
   }
 
   /**
-   * 노트 생성
+   * 노트 생성 (cross-platform safe)
    */
   async createNote(path: string, content: string): Promise<void> {
+    const normalizedPath = normalizePath(path);
     // 부모 폴더가 없으면 생성
-    const folderPath = path.substring(0, path.lastIndexOf('/'));
+    const folderPath = normalizedPath.substring(0, normalizedPath.lastIndexOf('/'));
     if (folderPath) {
       const folder = this.app.vault.getAbstractFileByPath(folderPath);
       if (!folder) {
-        await this.app.vault.createFolder(folderPath);
+        try {
+          await this.app.vault.createFolder(folderPath);
+        } catch (e) {
+          // Folder might already exist from sync - ignore
+          const msg = e instanceof Error ? e.message : String(e);
+          if (!msg.toLowerCase().includes('already exists')) {
+            throw e;
+          }
+        }
       }
     }
 
-    await this.app.vault.create(path, content);
+    try {
+      await this.app.vault.create(normalizedPath, content);
+    } catch (e) {
+      // File might already exist from sync - use adapter.write
+      const msg = e instanceof Error ? e.message : String(e);
+      if (msg.toLowerCase().includes('already exists')) {
+        await this.app.vault.adapter.write(normalizedPath, content);
+      } else {
+        throw e;
+      }
+    }
   }
 
   /**
-   * 노트 수정
+   * 노트 수정 (cross-platform safe)
    */
   async updateNote(path: string, content: string): Promise<void> {
-    const file = this.app.vault.getFileByPath(path);
+    const normalizedPath = normalizePath(path);
+    const file = this.app.vault.getFileByPath(normalizedPath);
     if (file) {
       await this.app.vault.modify(file, content);
     }
