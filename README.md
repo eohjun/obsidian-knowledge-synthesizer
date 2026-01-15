@@ -1,132 +1,132 @@
 # Knowledge Synthesizer
 
-관련 노트들을 종합하여 상위 레벨의 프레임워크와 인사이트를 도출하는 AI 기반 Obsidian 플러그인입니다.
+An AI-powered Obsidian plugin that synthesizes related notes into higher-level frameworks and insights.
 
 ## Features
 
-- **자동 클러스터링**: 태그, 폴더, 의미적 유사도 기반으로 관련 노트 그룹화
-- **AI 합성**: 여러 유형의 종합 노트 생성
-  - **Framework**: 개념들을 구조화한 프레임워크
-  - **Summary**: 핵심 내용 요약
-  - **Comparison**: 개념 간 비교 분석
-  - **Timeline**: 시간순 발전 과정
-- **합성 후보 추천**: 합성하기 좋은 노트 클러스터 자동 제안
-- **커스텀 선택**: 직접 노트를 선택하여 합성
+- **Auto Clustering**: Group related notes by tags, folders, or semantic similarity
+- **AI Synthesis**: Generate multiple types of synthesis notes
+  - **Framework**: Structured conceptual framework
+  - **Summary**: Core content summary
+  - **Comparison**: Compare and contrast analysis
+  - **Timeline**: Historical development timeline
+- **Synthesis Candidates**: Auto-suggest note clusters suitable for synthesis
+- **Custom Selection**: Manually select notes to synthesize
 
 ## PKM Workflow
 
 ```
-노트 클러스터 → Knowledge Synthesizer → 종합 노트 (프레임워크/요약/비교/타임라인)
-                    (합성 Synthesize)
+Note Cluster → Knowledge Synthesizer → Synthesis Note (Framework/Summary/Comparison/Timeline)
+                    (Synthesize)
 ```
 
 ## Supported AI Providers
 
-| Provider | Model | 특징 |
-|----------|-------|------|
-| **OpenAI** | GPT-4o, GPT-4o-mini 등 | 구조화된 프레임워크 생성 |
-| **Google Gemini** | Gemini 1.5 Pro/Flash | 긴 컨텍스트 지원, 무료 티어 |
-| **Anthropic** | Claude 3.5 Sonnet | 깊이 있는 비교 분석 |
+| Provider | Model | Notes |
+|----------|-------|-------|
+| **OpenAI** | GPT-4o, GPT-4o-mini | Structured framework generation |
+| **Google Gemini** | Gemini 1.5 Pro/Flash | Long context support, free tier |
+| **Anthropic** | Claude 3.5 Sonnet | Deep comparison analysis |
 
 ## Installation
 
-### BRAT (권장)
+### BRAT (Recommended)
 
-1. [BRAT](https://github.com/TfTHacker/obsidian42-brat) 플러그인 설치
-2. BRAT 설정 열기
-3. "Add Beta plugin" 클릭
-4. 입력: `eohjun/obsidian-knowledge-synthesizer`
-5. 플러그인 활성화
+1. Install [BRAT](https://github.com/TfTHacker/obsidian42-brat) plugin
+2. Open BRAT settings
+3. Click "Add Beta plugin"
+4. Enter: `eohjun/obsidian-knowledge-synthesizer`
+5. Enable the plugin
 
 ### Manual
 
-1. 최신 릴리스에서 `main.js`, `manifest.json`, `styles.css` 다운로드
-2. 폴더 생성: `<vault>/.obsidian/plugins/knowledge-synthesizer/`
-3. 다운로드한 파일을 폴더에 복사
-4. Obsidian 설정에서 플러그인 활성화
+1. Download `main.js`, `manifest.json`, `styles.css` from the latest release
+2. Create folder: `<vault>/.obsidian/plugins/knowledge-synthesizer/`
+3. Copy downloaded files to the folder
+4. Enable the plugin in Obsidian settings
 
-## Dependencies (선택)
+## Dependencies (Optional)
 
-- **[Vault Embeddings](https://github.com/eohjun/obsidian-vault-embeddings)**: 의미 기반 클러스터링 (권장)
+- **[Vault Embeddings](https://github.com/eohjun/obsidian-vault-embeddings)**: Semantic-based clustering (recommended)
 
-Vault Embeddings가 설치되어 있으면 의미적 유사도 기반 클러스터링이 가능합니다.
+With Vault Embeddings installed, semantic similarity-based clustering becomes available.
 
 ## Setup
 
-### API 키 설정
+### API Key Configuration
 
-1. Settings → Knowledge Synthesizer 열기
-2. **AI Provider** 섹션에서:
-   - AI Provider 선택
-   - API 키 입력
+1. Open Settings → Knowledge Synthesizer
+2. In **AI Provider** section:
+   - Select AI Provider
+   - Enter API key
 
 ## Commands
 
-| 명령어 | 설명 |
-|--------|------|
-| **Synthesize selected notes** | 선택한 노트들을 합성 |
-| **Synthesize by tag** | 특정 태그의 노트들을 합성 |
-| **Synthesize by folder** | 특정 폴더의 노트들을 합성 |
-| **Show synthesis candidates** | 합성 후보 클러스터 보기 |
+| Command | Description |
+|---------|-------------|
+| **Synthesize selected notes** | Synthesize selected notes |
+| **Synthesize by tag** | Synthesize notes with specific tag |
+| **Synthesize by folder** | Synthesize notes in specific folder |
+| **Show synthesis candidates** | View synthesis candidate clusters |
 
 ## Usage Workflow
 
 ```
-1. 합성할 노트 선택 방법 결정:
-   - 직접 선택: 파일 탐색기에서 다중 선택
-   - 태그 기반: 특정 태그의 모든 노트
-   - 폴더 기반: 특정 폴더의 모든 노트
-   - 추천: 합성 후보 클러스터에서 선택
-2. 합성 유형 선택 (Framework/Summary/Comparison/Timeline)
-3. AI가 노트들을 분석하고 종합 노트 생성
-4. 생성된 종합 노트 검토 및 수정
+1. Choose how to select notes for synthesis:
+   - Manual: Multi-select in file explorer
+   - Tag-based: All notes with specific tag
+   - Folder-based: All notes in specific folder
+   - Recommended: Select from candidate clusters
+2. Choose synthesis type (Framework/Summary/Comparison/Timeline)
+3. AI analyzes notes and generates synthesis note
+4. Review and edit the generated synthesis note
 ```
 
 ## Synthesis Types
 
 ### Framework
-개념들 간의 관계를 구조화한 프레임워크 생성
+Generate structured framework showing relationships between concepts
 ```
-예: "학습 이론" 관련 5개 노트 → 학습 이론 프레임워크 (구조화된 개념 지도)
+Example: 5 "Learning Theory" notes → Learning Theory Framework (structured concept map)
 ```
 
 ### Summary
-여러 노트의 핵심 내용을 하나로 요약
+Consolidate key content from multiple notes into one summary
 ```
-예: "인지 편향" 관련 10개 노트 → 인지 편향 종합 요약
+Example: 10 "Cognitive Bias" notes → Cognitive Bias Comprehensive Summary
 ```
 
 ### Comparison
-개념들 간의 공통점, 차이점, 장단점 비교
+Compare similarities, differences, and trade-offs between concepts
 ```
-예: "행동주의 vs 인지주의 vs 구성주의" → 학습 이론 비교 분석
+Example: "Behaviorism vs Cognitivism vs Constructivism" → Learning Theory Comparison
 ```
 
 ### Timeline
-개념의 역사적 발전 과정 정리
+Organize historical development of concepts
 ```
-예: "심리학 역사" 관련 노트들 → 심리학 발전 타임라인
+Example: "Psychology History" notes → Psychology Development Timeline
 ```
 
 ## Settings
 
 | Setting | Description | Default |
 |---------|-------------|---------|
-| AI Provider | 사용할 AI 프로바이더 | OpenAI |
-| API Key | 선택한 프로바이더의 API 키 | - |
-| Zettelkasten Folder | 노트 폴더 경로 | `04_Zettelkasten` |
-| Output Folder | 합성 노트 저장 폴더 | `04_Zettelkasten` |
-| Min cluster size | 최소 클러스터 크기 | 3 |
-| Use embeddings | Vault Embeddings 사용 | true |
+| AI Provider | AI provider to use | OpenAI |
+| API Key | API key for selected provider | - |
+| Zettelkasten Folder | Note folder path | `04_Zettelkasten` |
+| Output Folder | Synthesis note output folder | `04_Zettelkasten` |
+| Min cluster size | Minimum cluster size | 3 |
+| Use embeddings | Use Vault Embeddings | true |
 
 ## Related Plugins
 
-이 플러그인은 다음 플러그인들과 잘 연계됩니다:
+This plugin works well with:
 
-- **[Vault Embeddings](https://github.com/eohjun/obsidian-vault-embeddings)**: 의미 기반 클러스터 유사도 계산
-- **[Evergreen Note Cultivator](https://github.com/eohjun/obsidian-evergreen-note-cultivator)**: 합성된 노트 품질 평가
-- **[PKM Note Recommender](https://github.com/eohjun/obsidian-pkm-note-recommender)**: 연결된 노트 클러스터를 합성
-- **[AI Canvas Architect](https://github.com/eohjun/obsidian-ai-canvas-architect)**: 합성 클러스터를 캔버스로 시각화
+- **[Vault Embeddings](https://github.com/eohjun/obsidian-vault-embeddings)**: Semantic cluster similarity calculation
+- **[Evergreen Note Cultivator](https://github.com/eohjun/obsidian-evergreen-note-cultivator)**: Evaluate synthesized note quality
+- **[PKM Note Recommender](https://github.com/eohjun/obsidian-pkm-note-recommender)**: Synthesize connected note clusters
+- **[AI Canvas Architect](https://github.com/eohjun/obsidian-ai-canvas-architect)**: Visualize synthesis clusters on canvas
 
 ## Development
 
