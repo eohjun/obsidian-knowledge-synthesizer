@@ -327,7 +327,11 @@ ${notesText}
       throw new Error(`Claude API error: ${response.status}`);
     }
 
-    return response.json.content[0].text;
+    const content = response.json?.content;
+    if (!Array.isArray(content) || content.length === 0 || !content[0]?.text) {
+      throw new Error('Claude API returned unexpected response structure');
+    }
+    return content[0].text;
   }
 
   /**
@@ -366,7 +370,11 @@ ${notesText}
       throw new Error(`OpenAI API error: ${response.status}`);
     }
 
-    return response.json.choices[0].message.content;
+    const choices = response.json?.choices;
+    if (!Array.isArray(choices) || choices.length === 0 || !choices[0]?.message?.content) {
+      throw new Error('OpenAI API returned unexpected response structure');
+    }
+    return choices[0].message.content;
   }
 
   /**
@@ -398,7 +406,15 @@ ${notesText}
       throw new Error(`Gemini API error: ${response.status}`);
     }
 
-    return response.json.candidates[0].content.parts[0].text;
+    const candidates = response.json?.candidates;
+    if (!Array.isArray(candidates) || candidates.length === 0) {
+      throw new Error('Gemini API returned unexpected response structure');
+    }
+    const parts = candidates[0]?.content?.parts;
+    if (!Array.isArray(parts) || parts.length === 0 || !parts[0]?.text) {
+      throw new Error('Gemini API returned unexpected response parts');
+    }
+    return parts[0].text;
   }
 
   /**
@@ -424,6 +440,10 @@ ${notesText}
       throw new Error(`Grok API error: ${response.status}`);
     }
 
-    return response.json.choices[0].message.content;
+    const grokChoices = response.json?.choices;
+    if (!Array.isArray(grokChoices) || grokChoices.length === 0 || !grokChoices[0]?.message?.content) {
+      throw new Error('Grok API returned unexpected response structure');
+    }
+    return grokChoices[0].message.content;
   }
 }
