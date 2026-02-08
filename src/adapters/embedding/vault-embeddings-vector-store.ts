@@ -118,6 +118,13 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
   }
 
   /**
+   * Get stored embedding dimensions from index
+   */
+  getStoredDimensions(): number | null {
+    return this.indexCache?.dimensions ?? null;
+  }
+
+  /**
    * 캐시 갱신
    */
   async refresh(): Promise<void> {
@@ -151,6 +158,7 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
     const { limit = 10, threshold = 0.3, excludeNoteIds = [] } = options || {};
 
     const results: VectorSearchResult[] = [];
+    let dimensionWarningLogged = false;
 
     for (const [noteId, embedding] of this.cache) {
       // 제외 목록 확인
@@ -160,6 +168,10 @@ export class VaultEmbeddingsVectorStore implements IVectorStore {
 
       // 차원 불일치 스킵
       if (queryVector.length !== embedding.vector.length) {
+        if (!dimensionWarningLogged) {
+          console.warn(`[VaultEmbeddingsVectorStore] Dimension mismatch: query=${queryVector.length}d, stored=${embedding.vector.length}d. Ensure query embeddings use the same provider as Vault Embeddings.`);
+          dimensionWarningLogged = true;
+        }
         continue;
       }
 

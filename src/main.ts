@@ -18,6 +18,7 @@ import { SuggestSynthesisUseCase } from './core/application/use-cases/suggest-sy
 
 // Adapters
 import { OpenAIEmbeddingProvider } from './adapters/embedding/openai-embedding-provider';
+import { VaultEmbeddingsQueryProvider } from './adapters/embedding/vault-embeddings-query-provider';
 import { VaultEmbeddingsVectorStore } from './adapters/embedding/vault-embeddings-vector-store';
 import { LLMSynthesisGenerator, LLMConfig } from './adapters/llm/llm-synthesis-generator';
 import { ObsidianNoteRepository } from './adapters/obsidian/obsidian-note-repository';
@@ -170,13 +171,20 @@ export default class KnowledgeSynthesizerPlugin extends Plugin {
       // Note Repository (always required)
       this.noteRepository = new ObsidianNoteRepository(this.app);
 
-      // Embedding Provider (for query embeddings - requires OpenAI API key)
-      const openaiApiKey = this.settings.ai.apiKeys.openai;
-      if (openaiApiKey) {
-        this.embeddingProvider = new OpenAIEmbeddingProvider(openaiApiKey);
+      // Embedding Provider: VE 쿼리 프로바이더 우선, OpenAI 폴백
+      const veQueryProvider = new VaultEmbeddingsQueryProvider(this.app);
+      if (veQueryProvider.isAvailable()) {
+        this.embeddingProvider = veQueryProvider;
+        console.log('Knowledge Synthesizer: Using Vault Embeddings query provider');
       } else {
-        console.log('Knowledge Synthesizer: OpenAI API key not configured for query embeddings');
-        this.embeddingProvider = null;
+        const openaiApiKey = this.settings.ai.apiKeys.openai;
+        if (openaiApiKey) {
+          this.embeddingProvider = new OpenAIEmbeddingProvider(openaiApiKey);
+          console.log('Knowledge Synthesizer: VE query API unavailable, using OpenAI fallback');
+        } else {
+          console.log('Knowledge Synthesizer: No embedding provider available');
+          this.embeddingProvider = null;
+        }
       }
 
       // Vector Store (read from Vault Embeddings)
