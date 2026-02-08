@@ -40,7 +40,10 @@ export class SynthesisView extends ItemView {
   }
 
   async onClose(): Promise<void> {
-    // Cleanup
+    this.suggestions = [];
+    this.isLoading = false;
+    this.loadingMessage = '';
+    this.loadingStage = '';
   }
 
   private async render(): Promise<void> {
