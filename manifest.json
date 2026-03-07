@@ -1,10 +1,10 @@
 {
-  "id": "knowledge-synthesizer",
-  "name": "Knowledge Synthesizer",
-  "version": "0.3.14",
-  "minAppVersion": "1.0.0",
-  "description": "Synthesize multiple related notes into higher-level framework insights with AI",
-  "author": "eohjun",
-  "authorUrl": "https://github.com/eohjun",
-  "isDesktopOnly": false
+	"id": "knowledge-synthesizer",
+	"name": "Knowledge Synthesizer",
+	"version": "0.3.15",
+	"minAppVersion": "1.0.0",
+	"description": "Synthesize multiple related notes into higher-level framework insights with AI",
+	"author": "eohjun",
+	"authorUrl": "https://github.com/eohjun",
+	"isDesktopOnly": false
 }
