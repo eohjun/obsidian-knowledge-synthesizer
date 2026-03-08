@@ -1,6 +1,8 @@
 /**
- * LLM Synthesis Generator
+ * LLM Synthesis Generator — 공유 빌더/파서 사용
  * LLM을 사용한 노트 합성 생성기 (4개 프로바이더 지원)
+ *
+ * 수정: 인라인 빌드 → 공유 빌더/파서 전환
  */
 
 import { requestUrl } from 'obsidian';
@@ -11,6 +13,12 @@ import type {
 import type { SynthesisRequest, SynthesisType } from '../../core/domain/entities/synthesis-request';
 import { createSynthesisResult, SynthesisResult } from '../../core/domain/entities/synthesis-result';
 import { AIProviderType, AI_PROVIDERS } from '../../core/domain/constants';
+import {
+  buildOpenAIBody, parseOpenAIResponse,
+  buildAnthropicBody, parseAnthropicResponse,
+  buildGeminiBody, parseGeminiResponse, getGeminiGenerateUrl,
+  buildGrokBody, parseGrokResponse,
+} from 'obsidian-llm-shared';
 
 export interface LLMConfig {
   provider: AIProviderType;
@@ -116,91 +124,74 @@ export class LLMSynthesisGenerator implements ISynthesisGenerator {
   }
 
   private async testClaudeApiKey(apiKey: string): Promise<boolean> {
+    const body = buildAnthropicBody(
+      [{ role: 'user', content: 'Hello' }],
+      this.model,
+      { maxTokens: 10 }
+    );
     const response = await requestUrl({
-      url: 'https://api.anthropic.com/v1/messages',
+      url: `${AI_PROVIDERS.claude.endpoint}/messages`,
       method: 'POST',
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{ role: 'user', content: 'Hello' }],
-        max_tokens: 10,
-      }),
+      body: JSON.stringify(body),
     });
-    return response.status === 200 && response.json.content;
+    return parseAnthropicResponse(response.json).success;
   }
 
   private async testOpenAIApiKey(apiKey: string): Promise<boolean> {
-    // GPT-5.x, o1, o3 모델은 max_completion_tokens 사용
-    const isReasoningModel =
-      this.model.startsWith('gpt-5') ||
-      this.model.startsWith('o1') ||
-      this.model.startsWith('o3');
-
-    const requestBody: Record<string, unknown> = {
-      model: this.model,
-      messages: [{ role: 'user', content: 'Hello' }],
-    };
-
-    if (isReasoningModel) {
-      requestBody.max_completion_tokens = 10;
-    } else {
-      requestBody.max_tokens = 10;
-    }
-
+    const body = buildOpenAIBody(
+      [{ role: 'user', content: 'Hello' }],
+      this.model,
+      { maxTokens: 10 }
+    );
     const response = await requestUrl({
-      url: 'https://api.openai.com/v1/chat/completions',
+      url: `${AI_PROVIDERS.openai.endpoint}/chat/completions`,
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(body),
     });
-    return response.status === 200 && response.json.choices?.length > 0;
+    return parseOpenAIResponse(response.json).success;
   }
 
   private async testGeminiApiKey(apiKey: string): Promise<boolean> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${apiKey}`;
+    const body = buildGeminiBody(
+      [{ role: 'user', content: 'Hello' }],
+      this.model,
+      { maxTokens: 10 }
+    );
+    const url = getGeminiGenerateUrl(this.model, apiKey, AI_PROVIDERS.gemini.endpoint);
     const response = await requestUrl({
       url,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: 'Hello' }],
-          },
-        ],
-        generationConfig: {
-          maxOutputTokens: 10,
-        },
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
-    return response.status === 200 && response.json.candidates?.length > 0;
+    return parseGeminiResponse(response.json).success;
   }
 
   private async testGrokApiKey(apiKey: string): Promise<boolean> {
+    const body = buildGrokBody(
+      [{ role: 'user', content: 'Hello' }],
+      this.model,
+      { maxTokens: 10 }
+    );
     const response = await requestUrl({
-      url: 'https://api.x.ai/v1/chat/completions',
+      url: `${AI_PROVIDERS.grok.endpoint}/chat/completions`,
       method: 'POST',
       headers: {
         Authorization: `Bearer ${apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{ role: 'user', content: 'Hello' }],
-        max_tokens: 10,
-      }),
+      body: JSON.stringify(body),
     });
-    return response.status === 200 && response.json.choices?.length > 0;
+    return parseGrokResponse(response.json).success;
   }
 
   /**
@@ -304,146 +295,70 @@ ${notesText}
     }
   }
 
-  /**
-   * Claude API 호출
-   */
   private async callClaude(prompt: string): Promise<string> {
+    const messages = [{ role: 'user' as const, content: prompt }];
+    const body = buildAnthropicBody(messages, this.model, { maxTokens: 4000, temperature: 0.7 });
     const response = await requestUrl({
-      url: 'https://api.anthropic.com/v1/messages',
+      url: `${AI_PROVIDERS.claude.endpoint}/messages`,
       method: 'POST',
       headers: {
         'x-api-key': this.config.apiKey,
         'anthropic-version': '2023-06-01',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: this.model,
-        max_tokens: 4000,
-        messages: [{ role: 'user', content: prompt }],
-      }),
+      body: JSON.stringify(body),
     });
-
-    if (response.status !== 200) {
-      throw new Error(`Claude API error: ${response.status}`);
-    }
-
-    const content = response.json?.content;
-    if (!Array.isArray(content) || content.length === 0 || !content[0]?.text) {
-      throw new Error('Claude API returned unexpected response structure');
-    }
-    return content[0].text;
+    const result = parseAnthropicResponse(response.json);
+    if (!result.success) throw new Error(result.error || 'Claude API error');
+    return result.text;
   }
 
-  /**
-   * OpenAI API 호출
-   */
   private async callOpenAI(prompt: string): Promise<string> {
-    // GPT-5.x, o1, o3 모델은 max_completion_tokens 사용
-    const isReasoningModel =
-      this.model.startsWith('gpt-5') ||
-      this.model.startsWith('o1') ||
-      this.model.startsWith('o3');
-
-    const requestBody: Record<string, unknown> = {
-      model: this.model,
-      messages: [{ role: 'user', content: prompt }],
-      temperature: 0.7,
-    };
-
-    if (isReasoningModel) {
-      requestBody.max_completion_tokens = 4000;
-    } else {
-      requestBody.max_tokens = 4000;
-    }
-
+    const messages = [{ role: 'user' as const, content: prompt }];
+    const body = buildOpenAIBody(messages, this.model, { maxTokens: 4000, temperature: 0.7 });
     const response = await requestUrl({
-      url: 'https://api.openai.com/v1/chat/completions',
+      url: `${AI_PROVIDERS.openai.endpoint}/chat/completions`,
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.config.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(requestBody),
+      body: JSON.stringify(body),
     });
-
-    if (response.status !== 200) {
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const choices = response.json?.choices;
-    if (!Array.isArray(choices) || choices.length === 0 || !choices[0]?.message?.content) {
-      throw new Error('OpenAI API returned unexpected response structure');
-    }
-    return choices[0].message.content;
+    const result = parseOpenAIResponse(response.json);
+    if (!result.success) throw new Error(result.error || 'OpenAI API error');
+    return result.text;
   }
 
-  /**
-   * Gemini API 호출
-   */
   private async callGemini(prompt: string): Promise<string> {
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${this.model}:generateContent?key=${this.config.apiKey}`;
+    const messages = [{ role: 'user' as const, content: prompt }];
+    const body = buildGeminiBody(messages, this.model, { maxTokens: 4000, temperature: 0.7 });
+    const url = getGeminiGenerateUrl(this.model, this.config.apiKey, AI_PROVIDERS.gemini.endpoint);
     const response = await requestUrl({
       url,
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: 'user',
-            parts: [{ text: prompt }],
-          },
-        ],
-        generationConfig: {
-          temperature: 0.7,
-          maxOutputTokens: 4000,
-        },
-      }),
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
     });
-
-    if (response.status !== 200) {
-      throw new Error(`Gemini API error: ${response.status}`);
-    }
-
-    const candidates = response.json?.candidates;
-    if (!Array.isArray(candidates) || candidates.length === 0) {
-      throw new Error('Gemini API returned unexpected response structure');
-    }
-    const parts = candidates[0]?.content?.parts;
-    if (!Array.isArray(parts) || parts.length === 0 || !parts[0]?.text) {
-      throw new Error('Gemini API returned unexpected response parts');
-    }
-    return parts[0].text;
+    const result = parseGeminiResponse(response.json);
+    if (!result.success) throw new Error(result.error || 'Gemini API error');
+    return result.text;
   }
 
-  /**
-   * Grok API 호출 (OpenAI-compatible)
-   */
   private async callGrok(prompt: string): Promise<string> {
+    const messages = [{ role: 'user' as const, content: prompt }];
+    const body = buildGrokBody(messages, this.model, { maxTokens: 4000, temperature: 0.7 });
     const response = await requestUrl({
-      url: 'https://api.x.ai/v1/chat/completions',
+      url: `${AI_PROVIDERS.grok.endpoint}/chat/completions`,
       method: 'POST',
       headers: {
         Authorization: `Bearer ${this.config.apiKey}`,
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        model: this.model,
-        messages: [{ role: 'user', content: prompt }],
-        temperature: 0.7,
-        max_tokens: 4000,
-      }),
+      body: JSON.stringify(body),
     });
-
-    if (response.status !== 200) {
-      throw new Error(`Grok API error: ${response.status}`);
-    }
-
-    const grokChoices = response.json?.choices;
-    if (!Array.isArray(grokChoices) || grokChoices.length === 0 || !grokChoices[0]?.message?.content) {
-      throw new Error('Grok API returned unexpected response structure');
-    }
-    return grokChoices[0].message.content;
+    const result = parseGrokResponse(response.json);
+    if (!result.success) throw new Error(result.error || 'Grok API error');
+    return result.text;
   }
 }
