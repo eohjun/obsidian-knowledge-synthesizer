@@ -124,74 +124,41 @@ export class LLMSynthesisGenerator implements ISynthesisGenerator {
   }
 
   private async testClaudeApiKey(apiKey: string): Promise<boolean> {
-    const body = buildAnthropicBody(
-      [{ role: 'user', content: 'Hello' }],
-      this.model,
-      { maxTokens: 10 }
-    );
     const response = await requestUrl({
-      url: `${AI_PROVIDERS.claude.endpoint}/messages`,
-      method: 'POST',
+      url: `${AI_PROVIDERS.claude.endpoint}/models`,
+      method: 'GET',
       headers: {
         'x-api-key': apiKey,
         'anthropic-version': '2023-06-01',
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify(body),
     });
-    return parseAnthropicResponse(response.json).success;
+    return Array.isArray(response.json?.data);
   }
 
   private async testOpenAIApiKey(apiKey: string): Promise<boolean> {
-    const body = buildOpenAIBody(
-      [{ role: 'user', content: 'Hello' }],
-      this.model,
-      { maxTokens: 10 }
-    );
     const response = await requestUrl({
-      url: `${AI_PROVIDERS.openai.endpoint}/chat/completions`,
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      url: `${AI_PROVIDERS.openai.endpoint}/models`,
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
-    return parseOpenAIResponse(response.json).success;
+    return Array.isArray(response.json?.data);
   }
 
   private async testGeminiApiKey(apiKey: string): Promise<boolean> {
-    const body = buildGeminiBody(
-      [{ role: 'user', content: 'Hello' }],
-      this.model,
-      { maxTokens: 10 }
-    );
-    const url = getGeminiGenerateUrl(this.model, apiKey, AI_PROVIDERS.gemini.endpoint);
     const response = await requestUrl({
-      url,
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
+      url: `${AI_PROVIDERS.gemini.endpoint}/models?key=${apiKey}`,
+      method: 'GET',
     });
-    return parseGeminiResponse(response.json).success;
+    return Array.isArray(response.json?.models);
   }
 
   private async testGrokApiKey(apiKey: string): Promise<boolean> {
-    const body = buildGrokBody(
-      [{ role: 'user', content: 'Hello' }],
-      this.model,
-      { maxTokens: 10 }
-    );
     const response = await requestUrl({
-      url: `${AI_PROVIDERS.grok.endpoint}/chat/completions`,
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(body),
+      url: `${AI_PROVIDERS.grok.endpoint}/models`,
+      method: 'GET',
+      headers: { Authorization: `Bearer ${apiKey}` },
     });
-    return parseGrokResponse(response.json).success;
+    return Array.isArray(response.json?.data);
   }
 
   /**
