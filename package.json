@@ -1,6 +1,6 @@
 {
 	"name": "obsidian-knowledge-synthesizer",
-	"version": "0.3.23",
+	"version": "0.3.24",
 	"description": "Synthesize multiple related notes into higher-level framework insights with AI",
 	"main": "main.js",
 	"scripts": {
@@ -26,6 +26,6 @@
 		"typescript": "^6.0.2"
 	},
 	"dependencies": {
-		"obsidian-llm-shared": "github:eohjun/obsidian-llm-shared#v1.3.0"
+		"obsidian-llm-shared": "github:eohjun/obsidian-llm-shared#v1.4.0"
 	}
 }
